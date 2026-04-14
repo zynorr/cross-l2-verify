@@ -1,64 +1,150 @@
 # cross-l2-verify
 
-Cross-L2 Contract Verification Registry is a prototype for verifying an EVM contract once and anchoring that verification proof on Ethereum L1 so the same runtime bytecode can be trusted across many L2s.
+Verify an EVM contract once, anchor the proof on Ethereum L1, and reuse it across every L2 where the same runtime bytecode is deployed.
 
-## Prototype Scope
+## How It Works
 
-- M1: Verification proof format spec
-- M2: L1 `VerificationRegistry` contract and submission SDK
-- M3: Resolver API for explorers, wallets, and indexers
-- M4: CLI and plugin-ready integration surface
+1. **Verify** — Recompile source with `solc-js`, compare runtime bytecode against the deployed contract, build a verification proof, pin it to IPFS, and anchor hashes on L1.
+2. **Propagate** — Find the same bytecode on another chain and register the deployment on L1 without resubmitting source.
+3. **Lookup** — Query the L1 registry by address or `keccak256(runtimeBytecode)` to retrieve proofs and all known deployments.
 
-## Design Summary
+The primary key is `keccak256(runtimeBytecode)`. One proof covers every chain where that bytecode exists.
 
-- Primary key: `keccak256(runtimeBytecode)`
-- Full verification proof lives on IPFS
-- L1 stores immutable proof anchors and deployment registrations
-- Resolution is chain-agnostic: one proof can back many L2 addresses if the runtime bytecode matches
+## Architecture
 
-## Workspace Layout
-
-```text
-docs/spec/                 Protocol and proof format documents
-packages/contracts/        Foundry contract package
-packages/sdk/              TypeScript SDK for verify/lookup/propagate
-packages/cli/              CLI for verify/lookup/propagate/status
+```
+docs/spec/                 Proof format spec, protocol spec, ERC-7744 integration
+packages/contracts/        Solidity registry contract (Foundry)
+packages/sdk/              TypeScript SDK — verify, lookup, propagate
+packages/cli/              CLI wrapping the SDK
+packages/tooling/          Shared Foundry/Hardhat hook helpers
+packages/hardhat/          Hardhat plugin
 packages/resolver-api/     HTTP resolver for explorers and wallets
-packages/integration/      Multi-Anvil integration harness and CREATE2 demo flow
-examples/sample-contract/  Small Solidity contract used in demos
+packages/integration/      End-to-end demo with 3 local Anvil chains
+examples/                  Sample contracts
 ```
 
-## Getting Started
+## Prerequisites
 
-1. Install dependencies with `pnpm install`.
-2. If Foundry cannot fetch `solc` automatically, download a native compiler binary and export `SOLC_BINARY=/path/to/solc`.
-3. Run the full build with `SOLC_BINARY=/path/to/solc pnpm build`.
-4. Run the full test suite with `SOLC_BINARY=/path/to/solc pnpm test`.
-5. Start the resolver locally with `pnpm resolver:dev`.
+- Node.js >= 18
+- [pnpm](https://pnpm.io/) >= 10
+- [Foundry](https://getfoundry.sh/) (for contract compilation and tests)
 
-## CLI Commands
+## Setup
 
-- `pnpm cli verify --input compiler-input.json --contract-path src/Counter.sol --contract-name Counter --address 0x... --chain-id 421614 --target-rpc http://127.0.0.1:9545 --l1-rpc http://127.0.0.1:8545 --registry 0x... --compiler-version 0.8.26`
-- `pnpm cli lookup --code-hash 0x... --l1-rpc http://127.0.0.1:8545 --registry 0x...`
-- `pnpm cli propagate --address 0x... --chain-id 84532 --target-rpc http://127.0.0.1:10545 --l1-rpc http://127.0.0.1:8545 --registry 0x...`
-- `pnpm integration:test` runs the real 3-Anvil CREATE2 verification and propagation demo.
-- `pnpm --filter @cross-l2-verify/integration demo:plan` prints the planned flow without starting chains.
-- `pnpm --filter @cross-l2-verify/integration demo:live-ipfs` requires `PINATA_JWT` and keeps the three local chains alive after a live Pinata/IPFS-backed run.
+```sh
+pnpm install
+pnpm build
+pnpm test
+```
+
+If Foundry cannot download `solc` automatically:
+
+```sh
+brew install solidity
+export SOLC_BINARY=$(which solc)
+```
+
+## CLI Usage
+
+```sh
+# Verify a contract
+pnpm cli verify \
+  --input compiler-input.json \
+  --contract-path src/Counter.sol \
+  --contract-name Counter \
+  --address 0x... \
+  --chain-id 421614 \
+  --target-rpc $L2_RPC \
+  --l1-rpc $L1_RPC \
+  --registry $REGISTRY \
+  --compiler-version 0.8.26
+
+# Lookup by code hash
+pnpm cli lookup \
+  --code-hash 0x... \
+  --l1-rpc $L1_RPC \
+  --registry $REGISTRY
+
+# Propagate to another chain
+pnpm cli propagate \
+  --address 0x... \
+  --chain-id 84532 \
+  --target-rpc $L2B_RPC \
+  --l1-rpc $L1_RPC \
+  --registry $REGISTRY
+
+# Check verification status
+pnpm cli status \
+  --code-hash 0x... \
+  --l1-rpc $L1_RPC \
+  --registry $REGISTRY
+```
 
 ## Deploy Hooks
 
-Both deploy-hook commands call the SDK and automatically fall back from full `verify` to `propagate` when the proof is already anchored on L1.
+Both hooks call `verifyOrPropagate` — they submit a fresh proof or fall back to propagation if the proof already exists on L1.
 
-- Foundry:
-  `pnpm cli hook:foundry --broadcast-file broadcast/Deploy.s.sol/421614/run-latest.json --input compiler-input.json --contract-name Counter --contract-path src/Counter.sol --target-rpc http://127.0.0.1:9545 --l1-rpc http://127.0.0.1:8545 --registry 0x... --compiler-version 0.8.26 --private-key $PRIVATE_KEY --pinata-jwt $PINATA_JWT`
-- Hardhat:
-  `pnpm cli hook:hardhat --build-info artifacts/build-info/<id>.json --deployment-file deployments/base-sepolia/Counter.json --contract-name Counter --target-rpc http://127.0.0.1:9545 --l1-rpc http://127.0.0.1:8545 --registry 0x... --private-key $PRIVATE_KEY --pinata-jwt $PINATA_JWT`
+**Foundry:**
 
-## IPFS Modes
+```sh
+pnpm cli hook:foundry \
+  --broadcast-file broadcast/Deploy.s.sol/421614/run-latest.json \
+  --input compiler-input.json \
+  --contract-name Counter \
+  --contract-path src/Counter.sol \
+  --target-rpc $L2_RPC \
+  --l1-rpc $L1_RPC \
+  --registry $REGISTRY \
+  --compiler-version 0.8.26
+```
 
-- If `PINATA_JWT` is set, the integration demo pins proofs to Pinata and resolves them through the configured IPFS gateway.
-- If `PINATA_JWT` is not set, the demo falls back to an in-memory proof store so `pnpm test` stays deterministic and fast.
+**Hardhat:**
 
-## Current Status
+```sh
+pnpm cli hook:hardhat \
+  --build-info artifacts/build-info/<id>.json \
+  --deployment-file deployments/base-sepolia/Counter.json \
+  --contract-name Counter \
+  --target-rpc $L2_RPC \
+  --l1-rpc $L1_RPC \
+  --registry $REGISTRY
+```
 
-This repository now has the first end-to-end prototype slice in place: proof spec, L1 registry contract, SDK core, CLI, resolver API, a passing multi-Anvil CREATE2 demo, live Pinata/IPFS support for the demo when configured, and Foundry/Hardhat deploy-hook commands on top of the CLI/SDK. The next iteration is to turn the Hardhat and Foundry hooks into repo-installable packages and add explorer-facing resolver caching/indexing.
+## Resolver API
+
+```sh
+L1_RPC_URL=$L1_RPC REGISTRY_ADDRESS=$REGISTRY pnpm resolver:dev
+```
+
+Endpoints:
+
+```
+GET /codehash/:codeHash
+GET /chains/:chainId/addresses/:address
+GET /proofs/:proofHash
+GET /health
+```
+
+## Integration Demo
+
+Spins up 3 local Anvil chains, deploys the registry on L1, deploys a sample contract via CREATE2 on both L2s, verifies on one, and propagates to the other.
+
+```sh
+pnpm integration:test
+```
+
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `PRIVATE_KEY` | For write operations | Wallet key for L1 transactions |
+| `PINATA_JWT` | For IPFS pinning | Pinata API token |
+| `IPFS_GATEWAY` | Optional | Custom IPFS gateway URL |
+| `SOLC_BINARY` | Optional | Path to native solc binary |
+
+When `PINATA_JWT` is not set, the integration demo uses an in-memory proof store.
+
+## License
+
+MIT
