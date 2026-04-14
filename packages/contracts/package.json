@@ -1,0 +1,10 @@
+{
+  "name": "@cross-l2-verify/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "../../scripts/forge-with-solc.sh build",
+    "test": "../../scripts/forge-with-solc.sh test",
+    "lint": "forge fmt --check"
+  }
+}

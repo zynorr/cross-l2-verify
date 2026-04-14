@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.pnpm-store/
+.env
+.env.local
+cache/
+out/
+broadcast/
+artifacts/
+coverage/
+
