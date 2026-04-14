@@ -43,7 +43,22 @@ examples/sample-contract/  Small Solidity contract used in demos
 - `pnpm cli propagate --address 0x... --chain-id 84532 --target-rpc http://127.0.0.1:10545 --l1-rpc http://127.0.0.1:8545 --registry 0x...`
 - `pnpm integration:test` runs the real 3-Anvil CREATE2 verification and propagation demo.
 - `pnpm --filter @cross-l2-verify/integration demo:plan` prints the planned flow without starting chains.
+- `pnpm --filter @cross-l2-verify/integration demo:live-ipfs` requires `PINATA_JWT` and keeps the three local chains alive after a live Pinata/IPFS-backed run.
+
+## Deploy Hooks
+
+Both deploy-hook commands call the SDK and automatically fall back from full `verify` to `propagate` when the proof is already anchored on L1.
+
+- Foundry:
+  `pnpm cli hook:foundry --broadcast-file broadcast/Deploy.s.sol/421614/run-latest.json --input compiler-input.json --contract-name Counter --contract-path src/Counter.sol --target-rpc http://127.0.0.1:9545 --l1-rpc http://127.0.0.1:8545 --registry 0x... --compiler-version 0.8.26 --private-key $PRIVATE_KEY --pinata-jwt $PINATA_JWT`
+- Hardhat:
+  `pnpm cli hook:hardhat --build-info artifacts/build-info/<id>.json --deployment-file deployments/base-sepolia/Counter.json --contract-name Counter --target-rpc http://127.0.0.1:9545 --l1-rpc http://127.0.0.1:8545 --registry 0x... --private-key $PRIVATE_KEY --pinata-jwt $PINATA_JWT`
+
+## IPFS Modes
+
+- If `PINATA_JWT` is set, the integration demo pins proofs to Pinata and resolves them through the configured IPFS gateway.
+- If `PINATA_JWT` is not set, the demo falls back to an in-memory proof store so `pnpm test` stays deterministic and fast.
 
 ## Current Status
 
-This repository now has the first end-to-end prototype slice in place: proof spec, L1 registry contract, SDK core, CLI, resolver API, and a passing multi-Anvil CREATE2 demo that verifies once on one L2 and propagates to another. The next iteration is to swap the local proof store for a live Pinata/IPFS path in the demo and add Foundry/Hardhat deploy hooks on top of the CLI or SDK.
+This repository now has the first end-to-end prototype slice in place: proof spec, L1 registry contract, SDK core, CLI, resolver API, a passing multi-Anvil CREATE2 demo, live Pinata/IPFS support for the demo when configured, and Foundry/Hardhat deploy-hook commands on top of the CLI/SDK. The next iteration is to turn the Hardhat and Foundry hooks into repo-installable packages and add explorer-facing resolver caching/indexing.

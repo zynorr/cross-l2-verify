@@ -21,6 +21,7 @@ import {
 import solc from "solc";
 
 import {
+  PinataIpfsClient,
   compileSolidity,
   computeCodeHash,
   getCompiledContract,
@@ -90,6 +91,7 @@ contract Create2Factory {
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const KEEP_ALIVE = process.argv.includes("--keep-alive");
+const REQUIRE_LIVE_IPFS = process.argv.includes("--require-live-ipfs");
 
 async function runDemo(): Promise<void> {
   const networks = await allocateNetworks();
@@ -143,7 +145,7 @@ async function runDemo(): Promise<void> {
     assert.notEqual(await l2AProvider.getCode(counterAddressA), "0x", "L2-A deployment missing");
     assert.notEqual(await l2BProvider.getCode(counterAddressB), "0x", "L2-B deployment missing");
 
-    const proofStore = new LocalProofStore();
+    const { client: ipfsClient, mode: ipfsMode } = createDemoIpfsClient();
     const compilerVersion = solc.version();
 
     const verificationResult = await verify({
@@ -156,7 +158,7 @@ async function runDemo(): Promise<void> {
       targetProvider: l2AProvider,
       registryAddress: await registry.getAddress(),
       registryRunner: l1Wallet,
-      ipfsClient: proofStore,
+      ipfsClient,
       pinName: "counter-proof",
     });
 
@@ -176,7 +178,7 @@ async function runDemo(): Promise<void> {
       targetChainId: networks[1].chainId,
       registryAddress: await registry.getAddress(),
       registryRunner: l1Provider,
-      ipfsClient: proofStore,
+      ipfsClient,
     });
 
     const lookupByCodeHash = await lookup({
@@ -184,7 +186,7 @@ async function runDemo(): Promise<void> {
       codeHash: verificationResult.codeHash,
       registryAddress: await registry.getAddress(),
       registryRunner: l1Provider,
-      ipfsClient: proofStore,
+      ipfsClient,
     });
 
     assert.equal(lookupByAddress.proofs.length, 1, "Expected one anchored proof");
@@ -203,6 +205,7 @@ async function runDemo(): Promise<void> {
 
     printJson({
       mode: KEEP_ALIVE ? "keep-alive" : "test",
+      ipfsMode,
       networks,
       registryAddress: await registry.getAddress(),
       factoryAddress: factoryAddressA,
@@ -230,7 +233,7 @@ function plannedSteps(): string[] {
     "Compile and deploy VerificationRegistry to the L1 chain.",
     "Deploy a shared CREATE2 factory to both L2s from the same signer.",
     "Deploy the sample Counter contract with the same salt on both L2s so the address matches.",
-    "Verify the L2-A deployment once and anchor the proof on L1 using a local IPFS-style proof store.",
+    "Verify the L2-A deployment once and anchor the proof on L1 using Pinata/IPFS when configured, with a local fallback for repeatable tests.",
     "Propagate the same code hash to the L2-B deployment without resubmitting source.",
     "Lookup by address and by code hash to prove both L2 deployments resolve from one anchored proof.",
   ];
@@ -432,6 +435,73 @@ class LocalProofStore implements IpfsPinClient {
     }
 
     return structuredClone(proof) as T;
+  }
+}
+
+function createDemoIpfsClient(): {
+  client: IpfsPinClient;
+  mode: "pinata" | "memory-fallback";
+} {
+  const pinataJwt = process.env.PINATA_JWT;
+  const gatewayUrl = process.env.IPFS_GATEWAY;
+
+  if (!pinataJwt) {
+    if (REQUIRE_LIVE_IPFS) {
+      throw new Error("PINATA_JWT is required when --require-live-ipfs is set");
+    }
+
+    return {
+      client: new LocalProofStore(),
+      mode: "memory-fallback",
+    };
+  }
+
+  return {
+    client: new ResilientPinataProofStore(
+      new PinataIpfsClient({
+        jwt: pinataJwt,
+        gatewayUrl,
+      }),
+    ),
+    mode: "pinata",
+  };
+}
+
+class ResilientPinataProofStore implements IpfsPinClient {
+  private readonly cache = new Map<string, VerificationProof>();
+
+  constructor(
+    private readonly remote: PinataIpfsClient,
+    private readonly maxAttempts = 5,
+    private readonly retryDelayMs = 1_500,
+  ) {}
+
+  async pinJson(payload: unknown, options?: { name?: string }): Promise<PinJsonResult> {
+    const result = await this.remote.pinJson(payload, options);
+    this.cache.set(result.cid, structuredClone(payload) as VerificationProof);
+    return result;
+  }
+
+  async fetchJson<T>(cid: string): Promise<T> {
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
+      try {
+        return await this.remote.fetchJson<T>(cid);
+      } catch (error) {
+        lastError = error;
+        if (attempt < this.maxAttempts) {
+          await sleep(this.retryDelayMs);
+        }
+      }
+    }
+
+    const cached = this.cache.get(cid);
+    if (cached) {
+      return structuredClone(cached) as T;
+    }
+
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
   }
 }
 

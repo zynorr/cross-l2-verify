@@ -8,7 +8,8 @@
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "node --import tsx src/create2-demo.ts",
     "demo": "node --import tsx src/create2-demo.ts --keep-alive",
-    "demo:plan": "node --import tsx src/create2-demo.ts --dry-run"
+    "demo:plan": "node --import tsx src/create2-demo.ts --dry-run",
+    "demo:live-ipfs": "node --import tsx src/create2-demo.ts --keep-alive --require-live-ipfs"
   },
   "dependencies": {
     "@cross-l2-verify/sdk": "workspace:*",

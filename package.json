@@ -6,9 +6,10 @@
   "scripts": {
     "build": "pnpm --filter @cross-l2-verify/contracts build && pnpm --filter @cross-l2-verify/sdk build && pnpm --filter @cross-l2-verify/cli build && pnpm --filter @cross-l2-verify/resolver-api build && pnpm --filter @cross-l2-verify/integration build",
     "lint": "pnpm --filter @cross-l2-verify/contracts lint && pnpm --filter @cross-l2-verify/sdk lint && pnpm --filter @cross-l2-verify/cli lint && pnpm --filter @cross-l2-verify/resolver-api lint && pnpm --filter @cross-l2-verify/integration lint",
-    "test": "pnpm --filter @cross-l2-verify/contracts test && pnpm --filter @cross-l2-verify/sdk test && pnpm --filter @cross-l2-verify/integration test",
+    "test": "pnpm --filter @cross-l2-verify/contracts test && pnpm --filter @cross-l2-verify/sdk test && pnpm --filter @cross-l2-verify/cli test && pnpm --filter @cross-l2-verify/integration test",
     "contracts:test": "pnpm --filter @cross-l2-verify/contracts test",
     "sdk:test": "pnpm --filter @cross-l2-verify/sdk test",
+    "cli:test": "pnpm --filter @cross-l2-verify/cli test",
     "integration:test": "pnpm --filter @cross-l2-verify/integration test",
     "resolver:dev": "pnpm --filter @cross-l2-verify/resolver-api dev",
     "cli": "pnpm --filter @cross-l2-verify/cli cli"

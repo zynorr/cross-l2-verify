@@ -9,9 +9,12 @@ import {
   lookup as lookupVerification,
   propagate,
   verify,
+  verifyOrPropagate,
   type LookupOptions,
   type SolidityStandardJsonInput,
 } from "@cross-l2-verify/sdk";
+
+import { resolveFoundryHookInput, resolveHardhatHookInput } from "./hooks.js";
 
 const program = new Command();
 
@@ -57,6 +60,106 @@ program
         registryRunner: registrySigner,
         ipfsClient,
         pinName: options.pinName,
+      });
+
+      writeJson(result);
+    }),
+  );
+
+program
+  .command("hook:foundry")
+  .requiredOption("--broadcast-file <path>", "Foundry broadcast JSON path")
+  .requiredOption("--input <path>", "Path to a Solidity standard-json compiler input file")
+  .requiredOption("--contract-name <name>", "Contract name to extract from the broadcast file")
+  .requiredOption("--contract-path <path>", "Contract path inside the compiler input")
+  .requiredOption("--target-rpc <url>", "RPC URL for the target L2")
+  .requiredOption("--l1-rpc <url>", "Ethereum L1 RPC URL")
+  .requiredOption("--registry <address>", "VerificationRegistry address on L1")
+  .requiredOption("--compiler-version <version>", "solc version used for compilation")
+  .option("--address <address>", "Override deployment address instead of inferring it from the broadcast file")
+  .option("--chain-id <chainId>", "Override chain id instead of inferring it from the broadcast file", parsePositiveInteger)
+  .option("--private-key <hex>", "Private key for L1 submissions", process.env.PRIVATE_KEY)
+  .option("--pinata-jwt <jwt>", "Pinata JWT for proof pinning", process.env.PINATA_JWT)
+  .option("--pin-name <name>", "Optional Pinata pin name")
+  .option("--ipfs-gateway <url>", "IPFS gateway URL", process.env.IPFS_GATEWAY)
+  .action(
+    wrapAction(async (options) => {
+      const [broadcast, compilerInput] = await Promise.all([
+        readJsonFile(options.broadcastFile),
+        readCompilerInput(options.input),
+      ]);
+      const deployment = resolveFoundryHookInput({
+        broadcast,
+        contractName: options.contractName,
+        address: options.address,
+        chainId: options.chainId,
+      });
+
+      const result = await submitVerificationWithFallback({
+        compilerInput,
+        compilerVersion: options.compilerVersion,
+        contractPath: options.contractPath,
+        contractName: options.contractName,
+        targetChainId: deployment.chainId,
+        targetAddress: deployment.address,
+        targetRpc: options.targetRpc,
+        l1Rpc: options.l1Rpc,
+        registry: options.registry,
+        privateKey: options.privateKey,
+        pinataJwt: options.pinataJwt,
+        pinName: options.pinName,
+        ipfsGateway: options.ipfsGateway,
+      });
+
+      writeJson(result);
+    }),
+  );
+
+program
+  .command("hook:hardhat")
+  .requiredOption("--build-info <path>", "Hardhat build-info JSON path")
+  .requiredOption("--contract-name <name>", "Contract name inside the build-info output")
+  .requiredOption("--target-rpc <url>", "RPC URL for the target L2")
+  .requiredOption("--l1-rpc <url>", "Ethereum L1 RPC URL")
+  .requiredOption("--registry <address>", "VerificationRegistry address on L1")
+  .option("--contract-path <path>", "Contract path inside the build-info output")
+  .option("--deployment-file <path>", "Deployment JSON path, for example from hardhat-deploy")
+  .option("--address <address>", "Override deployment address")
+  .option("--chain-id <chainId>", "Override chain id", parsePositiveInteger)
+  .option("--private-key <hex>", "Private key for L1 submissions", process.env.PRIVATE_KEY)
+  .option("--pinata-jwt <jwt>", "Pinata JWT for proof pinning", process.env.PINATA_JWT)
+  .option("--pin-name <name>", "Optional Pinata pin name")
+  .option("--ipfs-gateway <url>", "IPFS gateway URL", process.env.IPFS_GATEWAY)
+  .action(
+    wrapAction(async (options) => {
+      const [buildInfo, deployment] = await Promise.all([
+        readJsonFile(options.buildInfo),
+        options.deploymentFile ? readJsonFile(options.deploymentFile) : Promise.resolve(undefined),
+      ]);
+
+      const resolution = resolveHardhatHookInput({
+        buildInfo,
+        contractName: options.contractName,
+        contractPath: options.contractPath,
+        deployment,
+        address: options.address,
+        chainId: options.chainId,
+      });
+
+      const result = await submitVerificationWithFallback({
+        compilerInput: resolution.compilerInput,
+        compilerVersion: resolution.compilerVersion,
+        contractPath: resolution.contractPath,
+        contractName: options.contractName,
+        targetChainId: resolution.chainId,
+        targetAddress: resolution.address,
+        targetRpc: options.targetRpc,
+        l1Rpc: options.l1Rpc,
+        registry: options.registry,
+        privateKey: options.privateKey,
+        pinataJwt: options.pinataJwt,
+        pinName: options.pinName,
+        ipfsGateway: options.ipfsGateway,
       });
 
       writeJson(result);
@@ -143,6 +246,10 @@ async function readCompilerInput(path: string): Promise<SolidityStandardJsonInpu
   return JSON.parse(await readFile(path, "utf8")) as SolidityStandardJsonInput;
 }
 
+async function readJsonFile(path: string): Promise<unknown> {
+  return JSON.parse(await readFile(path, "utf8")) as unknown;
+}
+
 function createLookupOptions(options: {
   l1Rpc: string;
   registry: string;
@@ -178,6 +285,46 @@ function createLookupOptions(options: {
     registryRunner,
     ipfsClient,
   };
+}
+
+async function submitVerificationWithFallback(options: {
+  compilerInput: SolidityStandardJsonInput;
+  compilerVersion: string;
+  contractPath: string;
+  contractName: string;
+  targetChainId: number;
+  targetAddress: string;
+  targetRpc: string;
+  l1Rpc: string;
+  registry: string;
+  privateKey?: string;
+  pinataJwt?: string;
+  pinName?: string;
+  ipfsGateway?: string;
+}) {
+  const l1Provider = new JsonRpcProvider(options.l1Rpc);
+  const registrySigner = new Wallet(
+    requiredString(options.privateKey, "A private key is required for submission"),
+    l1Provider,
+  );
+  const ipfsClient = new PinataIpfsClient({
+    jwt: requiredString(options.pinataJwt, "A Pinata JWT is required for submission"),
+    gatewayUrl: options.ipfsGateway,
+  });
+
+  return verifyOrPropagate({
+    compilerInput: options.compilerInput,
+    compilerVersion: options.compilerVersion,
+    contractPath: options.contractPath,
+    contractName: options.contractName,
+    targetChainId: options.targetChainId,
+    targetAddress: options.targetAddress,
+    targetProvider: new JsonRpcProvider(options.targetRpc),
+    registryAddress: options.registry,
+    registryRunner: registrySigner,
+    ipfsClient,
+    pinName: options.pinName,
+  });
 }
 
 function wrapAction<T>(action: (options: T) => Promise<void>) {
@@ -217,4 +364,3 @@ function requiredString(value: string | undefined, message: string): string {
 
   return value;
 }
-

@@ -34,6 +34,20 @@ export interface VerifyResult {
   proof: VerificationProof;
 }
 
+export type VerifyOrPropagateResult =
+  | {
+      mode: "verified";
+      verification: VerifyResult;
+    }
+  | {
+      mode: "propagated";
+      propagation: PropagateResult;
+    }
+  | {
+      mode: "already-registered";
+      codeHash: `0x${string}`;
+    };
+
 export interface LookupByAddressOptions {
   kind: "address";
   targetProvider: AbstractProvider;
@@ -206,6 +220,47 @@ export async function verify(options: VerifyOptions): Promise<VerifyResult> {
   };
 }
 
+export async function verifyOrPropagate(
+  options: VerifyOptions,
+): Promise<VerifyOrPropagateResult> {
+  try {
+    return {
+      mode: "verified",
+      verification: await verify(options),
+    };
+  } catch (error) {
+    const message = errorMessage(error);
+    if (!message.includes("proof exists")) {
+      throw error;
+    }
+
+    try {
+      return {
+        mode: "propagated",
+        propagation: await propagate({
+          registryAddress: options.registryAddress,
+          registryRunner: options.registryRunner,
+          targetProvider: options.targetProvider,
+          targetAddress: options.targetAddress,
+          targetChainId: options.targetChainId,
+        }),
+      };
+    } catch (propagationError) {
+      const propagationMessage = errorMessage(propagationError);
+      if (!propagationMessage.includes("deployment exists")) {
+        throw propagationError;
+      }
+
+      return {
+        mode: "already-registered",
+        codeHash: computeCodeHash(
+          await resolveRuntimeBytecode(options.targetProvider, options.targetAddress),
+        ),
+      };
+    }
+  }
+}
+
 export async function lookup(options: LookupOptions): Promise<LookupResult> {
   const registry = new Contract(
     getAddress(options.registryAddress),
@@ -371,4 +426,8 @@ function validateProofAgainstRecord(
   if (proof.compiler.version !== record.compilerVersion) {
     throw new Error("Onchain compiler version does not match proof payload");
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
