@@ -7,13 +7,17 @@ import {
   PinataIpfsClient,
   getProofByHash,
   lookup,
+  type IpfsPinClient,
 } from "@cross-l2-verify/sdk";
+
+import { CachedIpfsClient } from "./cached-ipfs.js";
 
 interface ResolverConfig {
   l1RpcUrl: string;
   registryAddress: string;
   ipfsGateway?: string;
   chainRpcUrls: Map<number, string>;
+  ipfsCacheSize?: number;
 }
 
 export function createResolverApp(config: ResolverConfig): Express {
@@ -23,7 +27,8 @@ export function createResolverApp(config: ResolverConfig): Express {
   );
 
   const registryRunner = new JsonRpcProvider(config.l1RpcUrl);
-  const ipfsClient = new PinataIpfsClient({ gatewayUrl: config.ipfsGateway });
+  const rawIpfsClient = new PinataIpfsClient({ gatewayUrl: config.ipfsGateway });
+  const ipfsClient: IpfsPinClient = new CachedIpfsClient(rawIpfsClient, config.ipfsCacheSize ?? 500);
 
   app.get("/", (_request: Request, response: Response) => {
     response.json({

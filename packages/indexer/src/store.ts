@@ -1,0 +1,72 @@
+import type { IndexedDeployment, IndexedProof, IndexQuery, IndexState } from "./types.js";
+
+export class MemoryIndexStore implements IndexQuery {
+  private _proofs = new Map<string, IndexedProof>();
+  private _codeHashToProofs = new Map<string, string[]>();
+  private _codeHashToDeployments = new Map<string, IndexedDeployment[]>();
+  private _lastBlockNumber = 0;
+
+  addProof(proof: IndexedProof): void {
+    if (this._proofs.has(proof.proofHash)) return;
+
+    this._proofs.set(proof.proofHash, proof);
+
+    const existing = this._codeHashToProofs.get(proof.codeHash) ?? [];
+    existing.push(proof.proofHash);
+    this._codeHashToProofs.set(proof.codeHash, existing);
+
+    this._lastBlockNumber = Math.max(this._lastBlockNumber, proof.blockNumber);
+  }
+
+  addDeployment(deployment: IndexedDeployment): void {
+    const key = `${deployment.codeHash}:${deployment.chainId}:${deployment.address}`;
+    const existing = this._codeHashToDeployments.get(deployment.codeHash) ?? [];
+
+    const duplicate = existing.some(
+      (d) => d.chainId === deployment.chainId && d.address.toLowerCase() === deployment.address.toLowerCase(),
+    );
+    if (duplicate) return;
+
+    existing.push(deployment);
+    this._codeHashToDeployments.set(deployment.codeHash, existing);
+
+    this._lastBlockNumber = Math.max(this._lastBlockNumber, deployment.blockNumber);
+  }
+
+  proofsByCodeHash(codeHash: string): IndexedProof[] {
+    const hashes = this._codeHashToProofs.get(codeHash.toLowerCase()) ?? [];
+    return hashes.map((h) => this._proofs.get(h)!).filter(Boolean);
+  }
+
+  deploymentsByCodeHash(codeHash: string): IndexedDeployment[] {
+    return this._codeHashToDeployments.get(codeHash.toLowerCase()) ?? [];
+  }
+
+  deploymentsByChain(codeHash: string, chainId: number): IndexedDeployment[] {
+    return this.deploymentsByCodeHash(codeHash).filter((d) => d.chainId === chainId);
+  }
+
+  chainIdsByCodeHash(codeHash: string): number[] {
+    const deployments = this.deploymentsByCodeHash(codeHash);
+    return [...new Set(deployments.map((d) => d.chainId))];
+  }
+
+  proofByHash(proofHash: string): IndexedProof | undefined {
+    return this._proofs.get(proofHash.toLowerCase());
+  }
+
+  state(): IndexState {
+    return {
+      lastBlockNumber: this._lastBlockNumber,
+      proofCount: this._proofs.size,
+      deploymentCount: Array.from(this._codeHashToDeployments.values()).reduce(
+        (sum, d) => sum + d.length,
+        0,
+      ),
+    };
+  }
+
+  get lastBlockNumber(): number {
+    return this._lastBlockNumber;
+  }
+}

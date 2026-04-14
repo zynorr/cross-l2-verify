@@ -18,8 +18,10 @@ packages/contracts/        Solidity registry contract (Foundry)
 packages/sdk/              TypeScript SDK — verify, lookup, propagate
 packages/cli/              CLI wrapping the SDK
 packages/tooling/          Shared Foundry/Hardhat hook helpers
-packages/hardhat/          Hardhat plugin
-packages/resolver-api/     HTTP resolver for explorers and wallets
+packages/hardhat/          Hardhat plugin for post-deploy verification
+packages/foundry/          Foundry plugin for post-deploy verification
+packages/indexer/          Event indexer for scalable registry reads
+packages/resolver-api/     HTTP resolver with LRU-cached IPFS lookups
 packages/integration/      End-to-end demo with 3 local Anvil chains
 examples/                  Sample contracts
 ```
@@ -45,7 +47,7 @@ brew install solidity
 export SOLC_BINARY=$(which solc)
 ```
 
-## CLI Usage
+## CLI
 
 ```sh
 # Verify a contract
@@ -124,6 +126,23 @@ GET /codehash/:codeHash
 GET /chains/:chainId/addresses/:address
 GET /proofs/:proofHash
 GET /health
+```
+
+The resolver uses an LRU cache for IPFS proof fetches. Set `IPFS_CACHE_SIZE` to tune (default 500).
+
+## Event Indexer
+
+The indexer package syncs `ProofSubmitted` and `DeploymentRegistered` events from the registry into an in-memory store for fast queries without repeated on-chain reads.
+
+```ts
+import { MemoryIndexStore, syncToHead, startLiveSync } from "@cross-l2-verify/indexer";
+
+const store = new MemoryIndexStore();
+await syncToHead({ provider, registryAddress, store });
+
+store.proofsByCodeHash("0x...");
+store.deploymentsByChain("0x...", 10);
+store.chainIdsByCodeHash("0x...");
 ```
 
 ## Integration Demo
