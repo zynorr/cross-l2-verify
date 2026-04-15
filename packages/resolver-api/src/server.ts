@@ -9,6 +9,7 @@ import {
   lookup,
   type IpfsPinClient,
 } from "@cross-l2-verify/sdk";
+import { MemoryIndexStore, syncToHead, startLiveSync } from "@cross-l2-verify/indexer";
 
 import { CachedIpfsClient } from "./cached-ipfs.js";
 
@@ -18,6 +19,7 @@ interface ResolverConfig {
   ipfsGateway?: string;
   chainRpcUrls: Map<number, string>;
   ipfsCacheSize?: number;
+  enableIndexer?: boolean;
 }
 
 export function createResolverApp(config: ResolverConfig): Express {
@@ -30,21 +32,68 @@ export function createResolverApp(config: ResolverConfig): Express {
   const rawIpfsClient = new PinataIpfsClient({ gatewayUrl: config.ipfsGateway });
   const ipfsClient: IpfsPinClient = new CachedIpfsClient(rawIpfsClient, config.ipfsCacheSize ?? 500);
 
+  const indexStore = new MemoryIndexStore();
+  let liveSyncHandle: { stop: () => void } | undefined;
+
+  if (config.enableIndexer !== false) {
+    syncToHead({
+      provider: registryRunner,
+      registryAddress: config.registryAddress,
+      store: indexStore,
+    }).then((count) => {
+      console.log(`Indexer: synced ${count} events to head`);
+
+      liveSyncHandle = startLiveSync({
+        provider: registryRunner,
+        registryAddress: config.registryAddress,
+        store: indexStore,
+        pollIntervalMs: 12_000,
+      });
+    }).catch((error) => {
+      console.error("Indexer sync failed, falling back to on-chain reads:", error);
+    });
+  }
+
   app.get("/", (_request: Request, response: Response) => {
     response.json({
       service: "cross-l2-verify-resolver",
-      version: "0.1.0",
+      version: "0.2.0",
       endpoints: [
         "/health",
         "/codehash/:codeHash",
+        "/codehash/:codeHash/deployments",
+        "/codehash/:codeHash/chains",
         "/chains/:chainId/addresses/:address",
         "/proofs/:proofHash",
+        "/indexer/status",
       ],
     });
   });
 
   app.get("/health", (_request: Request, response: Response) => {
     response.json({ status: "ok" });
+  });
+
+  app.get("/indexer/status", (_request: Request, response: Response) => {
+    response.json(indexStore.state());
+  });
+
+  app.get("/codehash/:codeHash/deployments", (_request: Request, response: Response) => {
+    const codeHash = singlePathParam(_request.params.codeHash);
+    const chainId = singleQueryValue(_request, "chainId");
+
+    const deployments = chainId
+      ? indexStore.deploymentsByChain(codeHash, parsePositiveInteger(chainId))
+      : indexStore.deploymentsByCodeHash(codeHash);
+
+    response.json({ codeHash, deployments });
+  });
+
+  app.get("/codehash/:codeHash/chains", (_request: Request, response: Response) => {
+    const codeHash = singlePathParam(_request.params.codeHash);
+    const chains = indexStore.chainIdsByCodeHash(codeHash);
+
+    response.json({ codeHash, chains });
   });
 
   app.get("/codehash/:codeHash", asyncHandler(async (request, response) => {

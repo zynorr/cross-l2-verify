@@ -9,6 +9,7 @@
     "dev": "tsx src/server.ts"
   },
   "dependencies": {
+    "@cross-l2-verify/indexer": "workspace:*",
     "@cross-l2-verify/sdk": "workspace:*",
     "@types/express": "^5.0.3",
     "ethers": "^6.15.0",

@@ -73,6 +73,9 @@ importers:
 
   packages/resolver-api:
     dependencies:
+      '@cross-l2-verify/indexer':
+        specifier: workspace:*
+        version: link:../indexer
       '@cross-l2-verify/sdk':
         specifier: workspace:*
         version: link:../sdk

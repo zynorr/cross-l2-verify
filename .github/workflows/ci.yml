@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: |
+          pnpm --filter @cross-l2-verify/sdk test
+          pnpm --filter @cross-l2-verify/tooling test
+          pnpm --filter @cross-l2-verify/indexer test
+          pnpm --filter @cross-l2-verify/cli test
+
+  contracts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Build contracts
+        working-directory: packages/contracts
+        run: forge build
+
+      - name: Test contracts
+        working-directory: packages/contracts
+        run: forge test -vvv
