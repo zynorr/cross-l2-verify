@@ -20,14 +20,16 @@ jobs:
           node-version: 20
           cache: pnpm
 
+      - uses: foundry-rs/foundry-toolchain@v1
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build all packages (skip contracts — built in separate job)
-        run: pnpm build:ts
+      - name: Build all packages
+        run: pnpm build
 
-      - name: Lint (skip contracts — linted in separate job)
-        run: pnpm lint:ts
+      - name: Lint
+        run: pnpm lint
 
       - name: Test
         run: |
