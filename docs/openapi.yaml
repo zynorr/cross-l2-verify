@@ -1,0 +1,314 @@
+openapi: 3.1.0
+info:
+  title: cross-l2-verify Resolver API
+  version: 0.3.0
+  description: >
+    HTTP API for querying cross-chain contract verification proofs anchored on
+    Ethereum L1. Block explorers and wallets can use this to check whether a
+    contract's source has been verified.
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: health
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /codehash/{codeHash}:
+    get:
+      summary: Lookup proofs and deployments by runtime bytecode hash
+      operationId: lookupByCodeHash
+      parameters:
+        - name: codeHash
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^0x[a-fA-F0-9]{64}$"
+      responses:
+        "200":
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LookupResult"
+
+  /codehash/{codeHash}/deployments:
+    get:
+      summary: List indexed deployments for a code hash
+      operationId: getDeployments
+      parameters:
+        - name: codeHash
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: chainId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deployment list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  codeHash:
+                    type: string
+                  deployments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/IndexedDeployment"
+
+  /codehash/{codeHash}/chains:
+    get:
+      summary: List chain IDs where this bytecode is deployed
+      operationId: getChains
+      parameters:
+        - name: codeHash
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Chain list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  codeHash:
+                    type: string
+                  chains:
+                    type: array
+                    items:
+                      type: integer
+
+  /chains/{chainId}/addresses/{address}:
+    get:
+      summary: Lookup verification by on-chain address
+      operationId: lookupByAddress
+      parameters:
+        - name: chainId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^0x[a-fA-F0-9]{40}$"
+        - name: rpc
+          in: query
+          required: false
+          description: RPC URL for the target chain (overrides server config)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LookupResult"
+        "400":
+          description: Missing RPC URL
+
+  /proofs/{proofHash}:
+    get:
+      summary: Fetch a single proof with its full IPFS payload
+      operationId: getProof
+      parameters:
+        - name: proofHash
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^0x[a-fA-F0-9]{64}$"
+      responses:
+        "200":
+          description: Proof details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProofDetail"
+
+  /indexer/status:
+    get:
+      summary: Indexer sync status
+      operationId: indexerStatus
+      responses:
+        "200":
+          description: Current indexer state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IndexerStatus"
+
+  /webhooks:
+    get:
+      summary: List webhook subscriptions
+      operationId: listWebhooks
+      responses:
+        "200":
+          description: Subscription list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WebhookSubscription"
+    post:
+      summary: Subscribe to webhook events
+      operationId: createWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url, events]
+              properties:
+                url:
+                  type: string
+                  format: uri
+                events:
+                  type: array
+                  items:
+                    type: string
+                    enum: [proof.submitted, deployment.registered]
+                secret:
+                  type: string
+                  description: HMAC-SHA256 secret for signature verification
+      responses:
+        "201":
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSubscription"
+
+  /webhooks/{id}:
+    delete:
+      summary: Remove a webhook subscription
+      operationId: deleteWebhook
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Removal result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  removed:
+                    type: boolean
+
+components:
+  schemas:
+    LookupResult:
+      type: object
+      properties:
+        codeHash:
+          type: string
+        proofs:
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationProof"
+        chainIds:
+          type: array
+          items:
+            type: integer
+        deploymentsByChain:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+    VerificationProof:
+      type: object
+      properties:
+        proofHash:
+          type: string
+        codeHash:
+          type: string
+        sourceHash:
+          type: string
+        compilerVersion:
+          type: string
+        ipfsCid:
+          type: string
+
+    ProofDetail:
+      allOf:
+        - $ref: "#/components/schemas/VerificationProof"
+        - type: object
+          properties:
+            proofPayload:
+              type: object
+
+    IndexedDeployment:
+      type: object
+      properties:
+        codeHash:
+          type: string
+        chainId:
+          type: integer
+        address:
+          type: string
+        submitter:
+          type: string
+        blockNumber:
+          type: integer
+        transactionHash:
+          type: string
+
+    IndexerStatus:
+      type: object
+      properties:
+        lastBlockNumber:
+          type: integer
+        proofCount:
+          type: integer
+        deploymentCount:
+          type: integer
+
+    WebhookSubscription:
+      type: object
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+        events:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: integer

@@ -12,6 +12,8 @@ import {
 import { MemoryIndexStore, syncToHead, startLiveSync } from "@cross-l2-verify/indexer";
 
 import { CachedIpfsClient } from "./cached-ipfs.js";
+import { cors, rateLimit } from "./middleware.js";
+import { WebhookManager, registerWebhookRoutes } from "./webhooks.js";
 
 interface ResolverConfig {
   l1RpcUrl: string;
@@ -20,6 +22,9 @@ interface ResolverConfig {
   chainRpcUrls: Map<number, string>;
   ipfsCacheSize?: number;
   enableIndexer?: boolean;
+  corsOrigins?: string[];
+  rateLimitWindowMs?: number;
+  rateLimitMax?: number;
 }
 
 export function createResolverApp(config: ResolverConfig): Express {
@@ -28,9 +33,17 @@ export function createResolverApp(config: ResolverConfig): Express {
     typeof value === "bigint" ? value.toString() : value,
   );
 
+  app.use(cors(config.corsOrigins ?? ["*"]));
+  app.use(rateLimit({
+    windowMs: config.rateLimitWindowMs ?? 60_000,
+    maxRequests: config.rateLimitMax ?? 100,
+  }));
+  app.use(express.json());
+
   const registryRunner = new JsonRpcProvider(config.l1RpcUrl);
   const rawIpfsClient = new PinataIpfsClient({ gatewayUrl: config.ipfsGateway });
   const ipfsClient: IpfsPinClient = new CachedIpfsClient(rawIpfsClient, config.ipfsCacheSize ?? 500);
+  const webhooks = new WebhookManager();
 
   const indexStore = new MemoryIndexStore();
   let liveSyncHandle: { stop: () => void } | undefined;
@@ -57,7 +70,7 @@ export function createResolverApp(config: ResolverConfig): Express {
   app.get("/", (_request: Request, response: Response) => {
     response.json({
       service: "cross-l2-verify-resolver",
-      version: "0.2.0",
+      version: "0.3.0",
       endpoints: [
         "/health",
         "/codehash/:codeHash",
@@ -66,6 +79,7 @@ export function createResolverApp(config: ResolverConfig): Express {
         "/chains/:chainId/addresses/:address",
         "/proofs/:proofHash",
         "/indexer/status",
+        "/webhooks",
       ],
     });
   });
@@ -77,6 +91,8 @@ export function createResolverApp(config: ResolverConfig): Express {
   app.get("/indexer/status", (_request: Request, response: Response) => {
     response.json(indexStore.state());
   });
+
+  registerWebhookRoutes(app, webhooks);
 
   app.get("/codehash/:codeHash/deployments", (_request: Request, response: Response) => {
     const codeHash = singlePathParam(_request.params.codeHash);
