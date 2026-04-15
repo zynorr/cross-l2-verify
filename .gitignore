@@ -3,6 +3,8 @@ dist/
 .pnpm-store/
 .env
 .env.local
+.env.testnet
+.DS_Store
 cache/
 out/
 broadcast/
