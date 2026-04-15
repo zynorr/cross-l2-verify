@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cross-l2-verify</title>
+<style>
+  :root {
+    --bg: #0a0a0a; --surface: #141414; --border: #222;
+    --text: #e5e5e5; --muted: #888; --accent: #3b82f6;
+    --green: #22c55e; --red: #ef4444; --yellow: #eab308;
+    --mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.25rem; }
+  .subtitle { color: var(--muted); font-size: 0.875rem; margin-bottom: 2rem; }
+  .config { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+  .config input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.875rem; font-family: var(--mono); }
+  .config input::placeholder { color: #555; }
+  .config button { background: var(--accent); color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; font-weight: 500; white-space: nowrap; }
+  .config button:hover { opacity: 0.9; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
+  .stat-label { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+  .stat-value { font-size: 1.75rem; font-weight: 700; font-family: var(--mono); }
+  .search { margin-bottom: 2rem; }
+  .search-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+  .search-row select { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.5rem; border-radius: 6px; font-size: 0.875rem; }
+  .search-row input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.875rem; font-family: var(--mono); }
+  .search-row button { background: var(--accent); color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; font-weight: 500; }
+  .result { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-top: 1rem; display: none; }
+  .result.visible { display: block; }
+  .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+  .badge { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 999px; }
+  .badge-verified { background: rgba(34,197,94,0.15); color: var(--green); }
+  .badge-unverified { background: rgba(239,68,68,0.15); color: var(--red); }
+  .badge-pending { background: rgba(234,179,8,0.15); color: var(--yellow); }
+  .detail { margin-bottom: 0.75rem; }
+  .detail-label { color: var(--muted); font-size: 0.75rem; margin-bottom: 0.15rem; }
+  .detail-value { font-family: var(--mono); font-size: 0.8rem; word-break: break-all; }
+  .chains-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .chain-tag { background: rgba(59,130,246,0.15); color: var(--accent); font-family: var(--mono); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px; }
+  .proofs-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+  .proofs-table th { text-align: left; font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
+  .proofs-table td { font-family: var(--mono); font-size: 0.8rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
+  .error { color: var(--red); font-size: 0.875rem; margin-top: 0.5rem; }
+  .empty { color: var(--muted); font-size: 0.875rem; text-align: center; padding: 2rem; }
+  @media (max-width: 640px) { .stats { grid-template-columns: 1fr; } .config { flex-direction: column; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>cross-l2-verify</h1>
+  <p class="subtitle">Verification status dashboard</p>
+
+  <div class="config">
+    <input id="resolverUrl" type="text" placeholder="Resolver URL (e.g. http://localhost:3000)" value="http://localhost:3000">
+    <button onclick="connect()">Connect</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Proofs</div>
+      <div class="stat-value" id="proofCount">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Deployments</div>
+      <div class="stat-value" id="deploymentCount">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Last Block</div>
+      <div class="stat-value" id="lastBlock">—</div>
+    </div>
+  </div>
+
+  <div class="search">
+    <div class="search-row">
+      <select id="searchType">
+        <option value="codeHash">Code Hash</option>
+        <option value="address">Address</option>
+        <option value="proof">Proof Hash</option>
+      </select>
+      <input id="searchInput" type="text" placeholder="0x...">
+      <input id="chainIdInput" type="text" placeholder="Chain ID" style="max-width:100px;display:none">
+      <button onclick="search()">Lookup</button>
+    </div>
+    <div id="searchError" class="error"></div>
+  </div>
+
+  <div id="result" class="result">
+    <div class="result-header">
+      <span class="detail-label">Verification Status</span>
+      <span id="statusBadge" class="badge"></span>
+    </div>
+    <div id="resultBody"></div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let baseUrl = 'http://localhost:3000';
+
+$('searchType').addEventListener('change', () => {
+  $('chainIdInput').style.display = $('searchType').value === 'address' ? '' : 'none';
+});
+
+async function connect() {
+  baseUrl = $('resolverUrl').value.replace(/\/$/, '');
+  try {
+    const r = await fetch(baseUrl + '/indexer/status');
+    const d = await r.json();
+    $('proofCount').textContent = d.proofCount ?? 0;
+    $('deploymentCount').textContent = d.deploymentCount ?? 0;
+    $('lastBlock').textContent = d.lastBlockNumber ? d.lastBlockNumber.toLocaleString() : '0';
+  } catch (e) {
+    $('proofCount').textContent = '!';
+    $('deploymentCount').textContent = '!';
+    $('lastBlock').textContent = '!';
+  }
+}
+
+async function search() {
+  $('searchError').textContent = '';
+  $('result').classList.remove('visible');
+  const type = $('searchType').value;
+  const input = $('searchInput').value.trim();
+  if (!input) return;
+
+  let url;
+  if (type === 'codeHash') url = baseUrl + '/codehash/' + input;
+  else if (type === 'proof') url = baseUrl + '/proofs/' + input;
+  else {
+    const chainId = $('chainIdInput').value.trim();
+    if (!chainId) { $('searchError').textContent = 'Chain ID required for address lookup'; return; }
+    url = baseUrl + '/chains/' + chainId + '/addresses/' + input;
+  }
+
+  try {
+    const r = await fetch(url);
+    if (!r.ok) { $('searchError').textContent = 'Not found (' + r.status + ')'; return; }
+    const d = await r.json();
+    renderResult(type, d);
+  } catch (e) {
+    $('searchError').textContent = 'Request failed: ' + e.message;
+  }
+}
+
+function renderResult(type, data) {
+  const panel = $('result');
+  const badge = $('statusBadge');
+  const body = $('resultBody');
+
+  if (type === 'proof') {
+    badge.className = 'badge badge-verified';
+    badge.textContent = 'Verified';
+    body.innerHTML = detail('Proof Hash', data.proofHash) +
+      detail('Code Hash', data.codeHash) +
+      detail('Source Hash', data.sourceHash) +
+      detail('Compiler', data.compilerVersion) +
+      detail('IPFS CID', data.ipfsCid);
+    panel.classList.add('visible');
+    return;
+  }
+
+  const proofs = data.proofs || [];
+  const chainIds = data.chainIds || [];
+  const verified = proofs.length > 0;
+
+  badge.className = 'badge ' + (verified ? 'badge-verified' : 'badge-unverified');
+  badge.textContent = verified ? proofs.length + ' proof' + (proofs.length > 1 ? 's' : '') : 'Unverified';
+
+  let html = detail('Code Hash', data.codeHash);
+
+  if (chainIds.length) {
+    html += '<div class="detail"><div class="detail-label">Deployed Chains</div><div class="chains-list">' +
+      chainIds.map(c => '<span class="chain-tag">' + c + '</span>').join('') + '</div></div>';
+  }
+
+  if (proofs.length) {
+    html += '<div class="detail"><div class="detail-label">Proofs</div>' +
+      '<table class="proofs-table"><thead><tr><th>Hash</th><th>Compiler</th><th>CID</th></tr></thead><tbody>' +
+      proofs.map(p =>
+        '<tr><td>' + truncate(p.proofHash) + '</td><td>' + p.compilerVersion + '</td><td>' + truncate(p.ipfsCid) + '</td></tr>'
+      ).join('') + '</tbody></table></div>';
+  }
+
+  body.innerHTML = html;
+  panel.classList.add('visible');
+}
+
+function detail(label, value) {
+  return '<div class="detail"><div class="detail-label">' + label + '</div><div class="detail-value">' + (value || '—') + '</div></div>';
+}
+
+function truncate(s) {
+  if (!s || s.length < 20) return s || '—';
+  return s.slice(0, 10) + '...' + s.slice(-8);
+}
+
+connect();
+</script>
+</body>
+</html>
