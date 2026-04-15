@@ -10,6 +10,7 @@ import {
   propagate,
   verify,
   verifyOrPropagate,
+  detectProxy,
   type LookupOptions,
   type SolidityStandardJsonInput,
 } from "@cross-l2-verify/sdk";
@@ -299,6 +300,64 @@ program
         succeeded: results.filter((r) => r.status !== "error").length,
         failed: results.filter((r) => r.status === "error").length,
         results,
+      });
+    }),
+  );
+
+program
+  .command("detect-proxy")
+  .description("Check if a contract is an ERC-1967/ERC-1822 proxy and resolve the implementation")
+  .requiredOption("--address <address>", "Contract address to check")
+  .requiredOption("--rpc <url>", "RPC URL for the chain")
+  .action(
+    wrapAction(async (options) => {
+      const provider = new JsonRpcProvider(options.rpc);
+      const result = await detectProxy(provider, options.address);
+      writeJson(result);
+    }),
+  );
+
+program
+  .command("estimate-gas")
+  .description("Estimate gas cost for a verify or propagate transaction")
+  .requiredOption("--l1-rpc <url>", "Ethereum L1 RPC URL")
+  .requiredOption("--registry <address>", "VerificationRegistry address on L1")
+  .option("--action <type>", "Action to estimate: submitProof, registerDeployment, submitProofAndRegister", "submitProofAndRegister")
+  .action(
+    wrapAction(async (options) => {
+      const provider = new JsonRpcProvider(options.l1Rpc);
+      const feeData = await provider.getFeeData();
+      const gasPrice = feeData.gasPrice ?? 0n;
+
+      // Typical gas costs measured from contract tests.
+      const gasCosts: Record<string, bigint> = {
+        submitProof: 180_000n,
+        registerDeployment: 85_000n,
+        submitProofAndRegister: 250_000n,
+      };
+
+      const action = options.action as string;
+      const gasEstimate = gasCosts[action];
+      if (!gasEstimate) {
+        throw new Error(`Unknown action: ${action}. Use submitProof, registerDeployment, or submitProofAndRegister.`);
+      }
+
+      const costWei = gasEstimate * gasPrice;
+      const costGwei = Number(costWei) / 1e9;
+      const costEth = Number(costWei) / 1e18;
+
+      writeJson({
+        action,
+        estimatedGas: gasEstimate.toString(),
+        gasPrice: {
+          wei: gasPrice.toString(),
+          gwei: (Number(gasPrice) / 1e9).toFixed(2),
+        },
+        estimatedCost: {
+          wei: costWei.toString(),
+          gwei: costGwei.toFixed(2),
+          eth: costEth.toFixed(6),
+        },
       });
     }),
   );

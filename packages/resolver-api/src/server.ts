@@ -14,6 +14,7 @@ import { MemoryIndexStore, syncToHead, startLiveSync } from "@cross-l2-verify/in
 import { CachedIpfsClient } from "./cached-ipfs.js";
 import { cors, rateLimit } from "./middleware.js";
 import { WebhookManager, registerWebhookRoutes } from "./webhooks.js";
+import { Metrics } from "./metrics.js";
 
 interface ResolverConfig {
   l1RpcUrl: string;
@@ -39,6 +40,9 @@ export function createResolverApp(config: ResolverConfig): Express {
     maxRequests: config.rateLimitMax ?? 100,
   }));
   app.use(express.json());
+
+  const metrics = new Metrics();
+  app.use(metrics.middleware());
 
   const registryRunner = new JsonRpcProvider(config.l1RpcUrl);
   const rawIpfsClient = new PinataIpfsClient({ gatewayUrl: config.ipfsGateway });
@@ -86,6 +90,11 @@ export function createResolverApp(config: ResolverConfig): Express {
 
   app.get("/health", (_request: Request, response: Response) => {
     response.json({ status: "ok" });
+  });
+
+  app.get("/metrics", (_request: Request, response: Response) => {
+    response.setHeader("Content-Type", "text/plain; version=0.0.4");
+    response.send(metrics.toPrometheus());
   });
 
   app.get("/indexer/status", (_request: Request, response: Response) => {
