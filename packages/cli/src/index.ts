@@ -237,6 +237,72 @@ program
     }),
   );
 
+program
+  .command("propagate-batch")
+  .description("Register a deployment across multiple L2 chains in one command")
+  .requiredOption("--l1-rpc <url>", "Ethereum L1 RPC URL")
+  .requiredOption("--registry <address>", "VerificationRegistry address on L1")
+  .requiredOption("--address <address>", "Deployed contract address (same on all chains)")
+  .requiredOption("--chains <items>", "Comma-separated list of chainId=rpcUrl pairs (e.g. 10=https://...,42161=https://...)")
+  .option("--expected-code-hash <hash>", "Optional expected runtime bytecode hash")
+  .option("--private-key <hex>", "Private key for L1 submissions", process.env.PRIVATE_KEY)
+  .option("--concurrency <n>", "Max parallel propagations", parsePositiveInteger, 3)
+  .action(
+    wrapAction(async (options) => {
+      const l1Provider = new JsonRpcProvider(options.l1Rpc);
+      const registrySigner = new Wallet(
+        requiredString(options.privateKey, "A private key is required for propagate-batch"),
+        l1Provider,
+      );
+
+      const chains = parseChainRpcPairs(options.chains);
+      const concurrency = options.concurrency as number;
+      const results: Array<{ chainId: number; status: string; error?: string; txHash?: string }> = [];
+
+      const queue = [...chains];
+      const run = async () => {
+        while (queue.length > 0) {
+          const entry = queue.shift()!;
+          try {
+            const result = await propagate({
+              registryAddress: options.registry,
+              registryRunner: registrySigner,
+              targetProvider: new JsonRpcProvider(entry.rpc),
+              targetAddress: options.address,
+              targetChainId: entry.chainId,
+              expectedCodeHash: options.expectedCodeHash,
+            });
+
+            results.push({
+              chainId: entry.chainId,
+              status: result.transactionHash ? "propagated" : "already-registered",
+              txHash: result.transactionHash,
+            });
+            console.error(`  chain ${entry.chainId}: ${result.transactionHash ? "propagated" : "already registered"}`);
+          } catch (error) {
+            results.push({
+              chainId: entry.chainId,
+              status: "error",
+              error: error instanceof Error ? error.message : String(error),
+            });
+            console.error(`  chain ${entry.chainId}: error — ${error instanceof Error ? error.message : error}`);
+          }
+        }
+      };
+
+      console.error(`Propagating to ${chains.length} chains (concurrency=${concurrency})...`);
+      await Promise.all(Array.from({ length: Math.min(concurrency, chains.length) }, run));
+
+      writeJson({
+        address: options.address,
+        totalChains: chains.length,
+        succeeded: results.filter((r) => r.status !== "error").length,
+        failed: results.filter((r) => r.status === "error").length,
+        results,
+      });
+    }),
+  );
+
 program.parseAsync(process.argv).catch((error) => {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
@@ -363,4 +429,18 @@ function requiredString(value: string | undefined, message: string): string {
   }
 
   return value;
+}
+
+function parseChainRpcPairs(value: string): Array<{ chainId: number; rpc: string }> {
+  return value.split(",").filter(Boolean).map((entry) => {
+    const eqIndex = entry.indexOf("=");
+    if (eqIndex === -1) {
+      throw new Error(`Invalid chain=rpc pair: ${entry}. Expected format: chainId=rpcUrl`);
+    }
+
+    return {
+      chainId: parsePositiveInteger(entry.slice(0, eqIndex)),
+      rpc: entry.slice(eqIndex + 1),
+    };
+  });
 }

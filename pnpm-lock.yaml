@@ -32,6 +32,8 @@ importers:
 
   packages/contracts: {}
 
+  packages/explorer-client: {}
+
   packages/foundry:
     dependencies:
       '@cross-l2-verify/sdk':

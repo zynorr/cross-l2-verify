@@ -13,17 +13,18 @@ The primary key is `keccak256(runtimeBytecode)`. One proof covers every chain wh
 ## Architecture
 
 ```
-docs/spec/                 Proof format spec, protocol spec, ERC-7744 integration
-packages/contracts/        Solidity registry contract (Foundry)
-packages/sdk/              TypeScript SDK — verify, lookup, propagate
-packages/cli/              CLI wrapping the SDK
-packages/tooling/          Shared Foundry/Hardhat hook helpers
-packages/hardhat/          Hardhat plugin for post-deploy verification
-packages/foundry/          Foundry plugin for post-deploy verification
-packages/indexer/          Event indexer for scalable registry reads
-packages/resolver-api/     HTTP resolver with LRU-cached IPFS lookups
-packages/integration/      End-to-end demo with 3 local Anvil chains
-examples/                  Sample contracts
+docs/spec/                   Proof format spec, protocol spec, ERC-7744 integration
+packages/contracts/          Solidity registry contract (Foundry)
+packages/sdk/                TypeScript SDK — verify, lookup, propagate
+packages/cli/                CLI wrapping the SDK
+packages/tooling/            Shared Foundry/Hardhat hook helpers
+packages/hardhat/            Hardhat plugin for post-deploy verification
+packages/foundry/            Foundry plugin for post-deploy verification
+packages/indexer/            Event indexer for scalable registry reads
+packages/explorer-client/    Lightweight client for block explorer integration
+packages/resolver-api/       HTTP resolver with cached IPFS lookups and live indexing
+packages/integration/        End-to-end demo with 3 local Anvil chains
+examples/                    Sample contracts
 ```
 
 ## Prerequisites
@@ -76,6 +77,14 @@ pnpm cli propagate \
   --l1-rpc $L1_RPC \
   --registry $REGISTRY
 
+# Batch propagate across multiple chains
+pnpm cli propagate-batch \
+  --address 0x... \
+  --chains "10=https://mainnet.optimism.io,42161=https://arb1.arbitrum.io/rpc" \
+  --l1-rpc $L1_RPC \
+  --registry $REGISTRY \
+  --concurrency 5
+
 # Check verification status
 pnpm cli status \
   --code-hash 0x... \
@@ -122,17 +131,35 @@ L1_RPC_URL=$L1_RPC REGISTRY_ADDRESS=$REGISTRY pnpm resolver:dev
 Endpoints:
 
 ```
-GET /codehash/:codeHash
-GET /chains/:chainId/addresses/:address
-GET /proofs/:proofHash
 GET /health
+GET /codehash/:codeHash                  Proofs and deployments for a bytecode hash
+GET /codehash/:codeHash/deployments      Indexed deployments (filterable by ?chainId=)
+GET /codehash/:codeHash/chains           Chain IDs where the bytecode is deployed
+GET /chains/:chainId/addresses/:address  Lookup by on-chain address
+GET /proofs/:proofHash                   Single proof with full IPFS payload
+GET /indexer/status                      Proof count, deployment count, last synced block
 ```
 
-The resolver uses an LRU cache for IPFS proof fetches. Set `IPFS_CACHE_SIZE` to tune (default 500).
+The resolver boots an event indexer on startup that syncs historical events and live-polls for new ones. IPFS proof fetches are LRU-cached (default 500 entries).
+
+## Explorer Client
+
+Zero-dependency client for block explorers to integrate verification lookups:
+
+```ts
+import { ResolverClient } from "@cross-l2-verify/explorer-client";
+
+const client = new ResolverClient({ baseUrl: "https://resolver.example.com" });
+
+const verified = await client.isVerified(10, "0xContractAddress");
+const result   = await client.lookupByCodeHash("0x...");
+const chains   = await client.getChains("0x...");
+const status   = await client.indexerStatus();
+```
 
 ## Event Indexer
 
-The indexer package syncs `ProofSubmitted` and `DeploymentRegistered` events from the registry into an in-memory store for fast queries without repeated on-chain reads.
+Syncs `ProofSubmitted` and `DeploymentRegistered` events from the registry into an in-memory store for fast queries without repeated on-chain reads.
 
 ```ts
 import { MemoryIndexStore, syncToHead, startLiveSync } from "@cross-l2-verify/indexer";
