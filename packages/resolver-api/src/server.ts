@@ -23,6 +23,8 @@ interface ResolverConfig {
   chainRpcUrls: Map<number, string>;
   ipfsCacheSize?: number;
   enableIndexer?: boolean;
+  indexerFromBlock?: number;
+  indexerBatchSize?: number;
   corsOrigins?: string[];
   rateLimitWindowMs?: number;
   rateLimitMax?: number;
@@ -57,6 +59,8 @@ export function createResolverApp(config: ResolverConfig): Express {
       provider: registryRunner,
       registryAddress: config.registryAddress,
       store: indexStore,
+      fromBlock: config.indexerFromBlock,
+      batchSize: config.indexerBatchSize,
     }).then((count) => {
       console.log(`Indexer: synced ${count} events to head`);
 
@@ -200,11 +204,16 @@ function asyncHandler(
 }
 
 function readConfigFromEnvironment(): ResolverConfig {
+  const fromBlock = process.env.FROM_BLOCK ? Number.parseInt(process.env.FROM_BLOCK, 10) : undefined;
+  const batchSize = process.env.BATCH_SIZE ? Number.parseInt(process.env.BATCH_SIZE, 10) : undefined;
+
   return {
     l1RpcUrl: requiredString(process.env.L1_RPC_URL, "L1_RPC_URL is required"),
     registryAddress: requiredString(process.env.REGISTRY_ADDRESS, "REGISTRY_ADDRESS is required"),
     ipfsGateway: process.env.IPFS_GATEWAY,
     chainRpcUrls: parseChainRpcUrls(process.env.CHAIN_RPC_URLS),
+    indexerFromBlock: fromBlock,
+    indexerBatchSize: batchSize,
   };
 }
 

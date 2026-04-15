@@ -18,7 +18,7 @@ export interface SyncOptions {
 
 export async function syncToHead(options: SyncOptions): Promise<number> {
   const { provider, registryAddress, store } = options;
-  const batchSize = options.batchSize ?? 2000;
+  const batchSize = options.batchSize ?? 10_000;
   const fromBlock = options.fromBlock ?? store.lastBlockNumber + 1;
   const headBlock = await provider.getBlockNumber();
 
