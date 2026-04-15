@@ -23,11 +23,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build all packages
-        run: pnpm build
+      - name: Build all packages (skip contracts — built in separate job)
+        run: pnpm build:ts
 
-      - name: Lint
-        run: pnpm lint
+      - name: Lint (skip contracts — linted in separate job)
+        run: pnpm lint:ts
 
       - name: Test
         run: |
