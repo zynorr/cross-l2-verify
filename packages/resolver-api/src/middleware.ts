@@ -58,9 +58,11 @@ export function rateLimit(options: RateLimitOptions) {
     response.setHeader("X-RateLimit-Reset", String(Math.ceil(entry.resetAt / 1000)));
 
     if (entry.count > maxRequests) {
+      const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
+      response.setHeader("Retry-After", String(retryAfter));
       response.status(429).json({
         error: "Too many requests",
-        retryAfter: Math.ceil((entry.resetAt - now) / 1000),
+        retryAfter,
       });
       return;
     }

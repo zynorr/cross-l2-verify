@@ -148,6 +148,40 @@ test("rate limit: returns 429 after exceeding maxRequests", async () => {
   assert.equal((result.body as Record<string, unknown>).error, "Too many requests");
 });
 
+test("rate limit: returns Retry-After header on 429", async () => {
+  const app = express();
+  app.set("trust proxy", true);
+  app.use(rateLimit({ windowMs: 60_000, maxRequests: 1 }));
+  app.get("/", (_req, res) => res.json({ ok: true }));
+
+  const result = await new Promise<{ status: number; retryAfter: string | null }>((resolve, reject) => {
+    const server = app.listen(0, () => {
+      const addr = server.address();
+      if (!addr || typeof addr === "string") {
+        server.close();
+        reject(new Error("Failed to bind"));
+        return;
+      }
+
+      const url = `http://127.0.0.1:${addr.port}/`;
+      (async () => {
+        await fetch(url); // uses the single allowed request
+        const res = await fetch(url); // exceeds limit
+        resolve({
+          status: res.status,
+          retryAfter: res.headers.get("retry-after"),
+        });
+      })()
+        .catch(reject)
+        .finally(() => server.close());
+    });
+  });
+
+  assert.equal(result.status, 429);
+  assert.ok(result.retryAfter, "Retry-After header should be present");
+  assert.ok(Number(result.retryAfter) > 0);
+});
+
 test("rate limit: sets X-RateLimit-Remaining header", async () => {
   const app = express();
   app.set("trust proxy", true);

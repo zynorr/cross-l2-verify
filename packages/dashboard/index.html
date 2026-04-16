@@ -23,14 +23,30 @@
   .config button { background: var(--accent); color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; font-weight: 500; white-space: nowrap; }
   .config button:hover { opacity: 0.9; }
   .config button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Connection status indicator */
+  .conn-status { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; margin-left: 0.5rem; }
+  .conn-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .conn-dot.ok { background: var(--green); }
+  .conn-dot.err { background: var(--red); }
+  .conn-dot.pending { background: var(--yellow); animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
   .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
   .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
   .stat-label { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
   .stat-value { font-size: 1.75rem; font-weight: 700; font-family: var(--mono); }
+
+  /* Skeleton loader */
+  .skeleton { background: linear-gradient(90deg, var(--surface) 25%, #1a1a1a 50%, var(--surface) 75%); background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; border-radius: 4px; height: 1em; display: inline-block; }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .skeleton-stat { width: 3rem; height: 2rem; }
+
   .search { margin-bottom: 2rem; }
   .search-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
   .search-row select { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.5rem; border-radius: 6px; font-size: 0.875rem; }
   .search-row input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.875rem; font-family: var(--mono); }
+  .search-row input::placeholder { color: #555; }
   .search-row button { background: var(--accent); color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; font-weight: 500; }
   .search-row button:disabled { opacity: 0.5; cursor: not-allowed; }
   .result { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-top: 1rem; display: none; }
@@ -39,7 +55,6 @@
   .badge { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 999px; }
   .badge-verified { background: rgba(34,197,94,0.15); color: var(--green); }
   .badge-unverified { background: rgba(239,68,68,0.15); color: var(--red); }
-  .badge-pending { background: rgba(234,179,8,0.15); color: var(--yellow); }
   .detail { margin-bottom: 0.75rem; }
   .detail-label { color: var(--muted); font-size: 0.75rem; margin-bottom: 0.15rem; }
   .detail-value { font-family: var(--mono); font-size: 0.8rem; word-break: break-all; }
@@ -53,13 +68,11 @@
   .proofs-table td a { color: var(--accent); text-decoration: none; }
   .proofs-table td a:hover { text-decoration: underline; }
 
-  /* Error box */
   .error-box { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; padding: 1rem 1.25rem; margin-top: 0.75rem; display: none; }
   .error-box.visible { display: flex; gap: 0.75rem; align-items: flex-start; }
   .error-box-icon { color: var(--red); font-size: 1.1rem; flex-shrink: 0; line-height: 1.4; }
   .error-box-msg { color: var(--red); font-size: 0.875rem; line-height: 1.4; word-break: break-word; }
 
-  /* Spinner */
   @keyframes spin { to { transform: rotate(360deg); } }
   .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; }
   .spinner-lg { width: 28px; height: 28px; border-width: 3px; }
@@ -68,14 +81,25 @@
 
   /* Source code viewer */
   .source-viewer { margin-top: 1rem; }
+  .source-toggle { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--accent); font-size: 0.8rem; margin-bottom: 0.5rem; background: none; border: none; font-family: inherit; }
+  .source-toggle:hover { text-decoration: underline; }
+  .source-toggle .arrow { transition: transform 0.2s; display: inline-block; }
+  .source-toggle .arrow.open { transform: rotate(90deg); }
+  .source-files { display: none; }
+  .source-files.visible { display: block; }
   .source-file { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; }
   .source-file-header { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.04); border-bottom: 1px solid var(--border); }
   .source-file-path { font-family: var(--mono); font-size: 0.75rem; color: var(--accent); }
+  .source-file-size { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
   .copy-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-family: var(--mono); }
   .copy-btn:hover { color: var(--text); border-color: var(--muted); }
   .copy-btn.copied { color: var(--green); border-color: var(--green); }
-  .source-file pre { margin: 0; padding: 0.75rem; overflow-x: auto; }
-  .source-file code { font-family: var(--mono); font-size: 0.8rem; color: #c9d1d9; line-height: 1.5; white-space: pre; }
+  .source-file pre { margin: 0; padding: 0; overflow-x: auto; max-height: 400px; overflow-y: auto; }
+  .source-file code { font-family: var(--mono); font-size: 0.8rem; color: #c9d1d9; line-height: 1.6; white-space: pre; display: block; }
+  .source-line { display: flex; }
+  .source-line:hover { background: rgba(255,255,255,0.04); }
+  .line-num { display: inline-block; min-width: 3rem; padding: 0 0.5rem; text-align: right; color: #484f58; user-select: none; flex-shrink: 0; border-right: 1px solid var(--border); margin-right: 0.75rem; }
+  .line-content { flex: 1; padding-right: 0.75rem; }
 
   /* Deployment timeline */
   .timeline { margin-top: 0.5rem; }
@@ -91,17 +115,32 @@
   .timeline-meta a { color: var(--muted); text-decoration: none; }
   .timeline-meta a:hover { color: var(--accent); text-decoration: underline; }
 
+  /* Auto-refresh indicator */
+  .refresh-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+  .refresh-info { font-size: 0.7rem; color: var(--muted); font-family: var(--mono); }
+  .refresh-toggle { display: flex; align-items: center; gap: 0.35rem; }
+  .refresh-toggle label { font-size: 0.75rem; color: var(--muted); cursor: pointer; }
+  .refresh-toggle input[type="checkbox"] { accent-color: var(--accent); }
+
   @media (max-width: 640px) { .stats { grid-template-columns: repeat(2, 1fr); } .config { flex-direction: column; } }
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>cross-l2-verify</h1>
+  <h1>cross-l2-verify <span id="connStatus" class="conn-status"></span></h1>
   <p class="subtitle">Verification status dashboard</p>
 
   <div class="config">
     <input id="resolverUrl" type="text" placeholder="Resolver URL (e.g. http://localhost:3000)" value="http://localhost:3000">
     <button id="connectBtn" onclick="connect()">Connect</button>
+  </div>
+
+  <div class="refresh-bar">
+    <span id="refreshInfo" class="refresh-info"></span>
+    <div class="refresh-toggle">
+      <input type="checkbox" id="autoRefresh" checked>
+      <label for="autoRefresh">Auto-refresh (30s)</label>
+    </div>
   </div>
 
   <div class="stats">
@@ -132,6 +171,7 @@
       </select>
       <input id="searchInput" type="text" placeholder="0x...">
       <input id="chainIdInput" type="text" placeholder="Chain ID" style="max-width:100px;display:none">
+      <input id="rpcInput" type="text" placeholder="RPC URL (optional)" style="max-width:200px;display:none">
       <button id="searchBtn" onclick="search()">Lookup</button>
     </div>
     <div id="searchError" class="error-box">
@@ -155,37 +195,79 @@
 </div>
 
 <script>
-const $ = (id) => document.getElementById(id);
-let baseUrl = 'http://localhost:3000';
-let ipfsGateway = 'https://gateway.pinata.cloud/ipfs/';
+// ---------------------------------------------------------------------------
+// Inline ResolverClient (from @cross-l2-verify/explorer-client)
+// Zero-dependency client for the resolver API
+// ---------------------------------------------------------------------------
+class ResolverClient {
+  constructor(options) {
+    this._baseUrl = options.baseUrl.replace(/\/$/, '');
+    this._fetch = options.fetchFn || globalThis.fetch.bind(globalThis);
+  }
 
-const CHAIN_NAMES = {
-  1: 'Ethereum', 10: 'Optimism', 8453: 'Base', 42161: 'Arbitrum',
+  async health() { return this._get('/health'); }
+  async lookupByCodeHash(codeHash) { return this._get('/codehash/' + codeHash); }
+  async lookupByAddress(chainId, address, rpc) {
+    var query = rpc ? '?rpc=' + encodeURIComponent(rpc) : '';
+    return this._get('/chains/' + chainId + '/addresses/' + address + query);
+  }
+  async getProof(proofHash) { return this._get('/proofs/' + proofHash); }
+  async getDeployments(codeHash, chainId) {
+    var query = chainId ? '?chainId=' + chainId : '';
+    return this._get('/codehash/' + codeHash + '/deployments' + query);
+  }
+  async getChains(codeHash) { return this._get('/codehash/' + codeHash + '/chains'); }
+  async indexerStatus() { return this._get('/indexer/status'); }
+  async isVerified(chainId, address, rpc) {
+    try {
+      var result = await this.lookupByAddress(chainId, address, rpc);
+      return result.proofs.length > 0;
+    } catch (e) { return false; }
+  }
+
+  async _get(path) {
+    var response = await this._fetch(this._baseUrl + path);
+    if (!response.ok) {
+      var body = '';
+      try { body = await response.text(); } catch (e) {}
+      var err = new Error('Resolver returned ' + response.status + ' for ' + path + ': ' + body);
+      err.status = response.status;
+      err.path = path;
+      throw err;
+    }
+    return response.json();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// App state
+// ---------------------------------------------------------------------------
+var $ = function(id) { return document.getElementById(id); };
+var client = null;
+var refreshTimer = null;
+var ipfsGateway = 'https://gateway.pinata.cloud/ipfs/';
+
+var CHAIN_NAMES = {
+  1: 'Ethereum', 10: 'Optimism', 8453: 'Base', 42161: 'Arbitrum', 137: 'Polygon',
   11155111: 'Sepolia', 11155420: 'OP Sepolia', 84532: 'Base Sepolia', 421614: 'Arb Sepolia'
 };
 
-const CHAIN_EXPLORERS = {
-  1: 'https://etherscan.io',
-  10: 'https://optimistic.etherscan.io',
-  8453: 'https://basescan.org',
-  42161: 'https://arbiscan.io',
-  11155111: 'https://sepolia.etherscan.io',
-  11155420: 'https://sepolia-optimism.etherscan.io',
-  84532: 'https://sepolia.basescan.org',
-  421614: 'https://sepolia.arbiscan.io'
+var CHAIN_EXPLORERS = {
+  1: 'https://etherscan.io', 10: 'https://optimistic.etherscan.io',
+  8453: 'https://basescan.org', 42161: 'https://arbiscan.io', 137: 'https://polygonscan.com',
+  11155111: 'https://sepolia.etherscan.io', 11155420: 'https://sepolia-optimism.etherscan.io',
+  84532: 'https://sepolia.basescan.org', 421614: 'https://sepolia.arbiscan.io'
 };
 
-function chainName(id) {
-  return CHAIN_NAMES[id] || ('Chain ' + id);
-}
-
-function explorerUrl(chainId) {
-  return CHAIN_EXPLORERS[chainId] || null;
-}
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function chainName(id) { return CHAIN_NAMES[id] || ('Chain ' + id); }
+function explorerUrl(chainId) { return CHAIN_EXPLORERS[chainId] || null; }
 
 function addressLink(address, chainId) {
   var base = explorerUrl(chainId);
-  if (!base) return esc(address);
+  if (!base) return '<span>' + esc(address) + '</span>';
   return '<a href="' + base + '/address/' + esc(address) + '" target="_blank" rel="noopener">' + esc(address) + '</a>';
 }
 
@@ -212,25 +294,31 @@ function esc(s) {
   return d.innerHTML;
 }
 
+function truncate(s) {
+  if (!s || s.length < 20) return s || '\u2014';
+  return s.slice(0, 10) + '\u2026' + s.slice(-8);
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
 function showError(msg) {
   $('searchErrorMsg').textContent = msg;
   $('searchError').classList.add('visible');
 }
-
 function hideError() {
   $('searchErrorMsg').textContent = '';
   $('searchError').classList.remove('visible');
 }
-
 function showLoading(text) {
   $('loadingText').textContent = text || 'Looking up...';
   $('loadingOverlay').classList.add('visible');
   $('result').classList.remove('visible');
 }
-
-function hideLoading() {
-  $('loadingOverlay').classList.remove('visible');
-}
+function hideLoading() { $('loadingOverlay').classList.remove('visible'); }
 
 function setButtonLoading(btn, loading) {
   if (loading) {
@@ -243,85 +331,145 @@ function setButtonLoading(btn, loading) {
   }
 }
 
-$('searchType').addEventListener('change', () => {
-  $('chainIdInput').style.display = $('searchType').value === 'address' ? '' : 'none';
+function showSkeleton() {
+  ['proofCount', 'deploymentCount', 'chainCount', 'lastBlock'].forEach(function(id) {
+    $(id).innerHTML = '<span class="skeleton skeleton-stat"></span>';
+  });
+}
+
+function setConnStatus(state, label) {
+  var html = '<span class="conn-dot ' + state + '"></span><span style="color:var(--muted);font-size:0.75rem">' + esc(label) + '</span>';
+  $('connStatus').innerHTML = html;
+}
+
+// ---------------------------------------------------------------------------
+// Search type toggle — show chain/rpc inputs for address mode
+// ---------------------------------------------------------------------------
+$('searchType').addEventListener('change', function() {
+  var isAddr = $('searchType').value === 'address';
+  $('chainIdInput').style.display = isAddr ? '' : 'none';
+  $('rpcInput').style.display = isAddr ? '' : 'none';
 });
 
+// Allow Enter key in search input
+$('searchInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') search(); });
+
+// ---------------------------------------------------------------------------
+// Connect
+// ---------------------------------------------------------------------------
 async function connect() {
-  baseUrl = $('resolverUrl').value.replace(/\/$/, '');
+  var url = $('resolverUrl').value.replace(/\/$/, '');
+  client = new ResolverClient({ baseUrl: url });
+
   var btn = $('connectBtn');
   setButtonLoading(btn, true);
+  setConnStatus('pending', 'Connecting...');
+  showSkeleton();
   hideError();
+
   try {
-    var r = await fetch(baseUrl + '/indexer/status');
-    var d = await r.json();
-    $('proofCount').textContent = d.proofCount ?? 0;
-    $('deploymentCount').textContent = d.deploymentCount ?? 0;
-    $('lastBlock').textContent = d.lastBlockNumber ? d.lastBlockNumber.toLocaleString() : '0';
-    $('chainCount').textContent = d.chainCount ?? '\u2014';
+    var status = await client.indexerStatus();
+    $('proofCount').textContent = status.proofCount ?? 0;
+    $('deploymentCount').textContent = status.deploymentCount ?? 0;
+    $('lastBlock').textContent = status.lastBlockNumber ? status.lastBlockNumber.toLocaleString() : '0';
+    $('chainCount').textContent = status.chainCount ?? '\u2014';
+    setConnStatus('ok', 'Connected');
+    $('refreshInfo').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+    startAutoRefresh();
   } catch (e) {
-    $('proofCount').textContent = '!';
-    $('deploymentCount').textContent = '!';
-    $('chainCount').textContent = '!';
-    $('lastBlock').textContent = '!';
-    showError('Failed to connect to resolver at ' + baseUrl + ': ' + e.message);
+    ['proofCount', 'deploymentCount', 'chainCount', 'lastBlock'].forEach(function(id) { $(id).textContent = '!'; });
+    setConnStatus('err', 'Error');
+    showError('Failed to connect: ' + (e.message || e));
+    stopAutoRefresh();
   } finally {
     setButtonLoading(btn, false);
   }
 }
 
+// ---------------------------------------------------------------------------
+// Auto-refresh
+// ---------------------------------------------------------------------------
+function startAutoRefresh() {
+  stopAutoRefresh();
+  if (!$('autoRefresh').checked) return;
+  refreshTimer = setInterval(async function() {
+    if (!client) return;
+    try {
+      var status = await client.indexerStatus();
+      $('proofCount').textContent = status.proofCount ?? 0;
+      $('deploymentCount').textContent = status.deploymentCount ?? 0;
+      $('lastBlock').textContent = status.lastBlockNumber ? status.lastBlockNumber.toLocaleString() : '0';
+      $('chainCount').textContent = status.chainCount ?? '\u2014';
+      setConnStatus('ok', 'Connected');
+      $('refreshInfo').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+    } catch (e) {
+      setConnStatus('err', 'Refresh failed');
+    }
+  }, 30000);
+}
+
+function stopAutoRefresh() {
+  if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+}
+
+$('autoRefresh').addEventListener('change', function() {
+  if (this.checked) startAutoRefresh(); else stopAutoRefresh();
+});
+
+// ---------------------------------------------------------------------------
+// Search — uses ResolverClient
+// ---------------------------------------------------------------------------
 async function search() {
+  if (!client) { showError('Connect to a resolver first'); return; }
   hideError();
   $('result').classList.remove('visible');
+
   var type = $('searchType').value;
   var input = $('searchInput').value.trim();
   if (!input) return;
-
-  var url;
-  if (type === 'codeHash') url = baseUrl + '/codehash/' + input;
-  else if (type === 'proof') url = baseUrl + '/proofs/' + input;
-  else {
-    var chainId = $('chainIdInput').value.trim();
-    if (!chainId) { showError('Chain ID required for address lookup'); return; }
-    url = baseUrl + '/chains/' + chainId + '/addresses/' + input;
-  }
 
   var btn = $('searchBtn');
   setButtonLoading(btn, true);
   showLoading('Looking up ' + type.replace(/([A-Z])/g, ' $1').toLowerCase() + '...');
 
   try {
-    var r = await fetch(url);
-    if (!r.ok) {
-      var errorBody = '';
-      try { errorBody = (await r.json()).error || ''; } catch (_) {}
-      hideLoading();
-      showError('Not found (HTTP ' + r.status + ')' + (errorBody ? ': ' + errorBody : ''));
-      return;
-    }
-    var d = await r.json();
-    hideLoading();
-
-    // If this is a codeHash lookup, also fetch deployments
-    if (type === 'codeHash' && d.codeHash) {
+    var data;
+    if (type === 'codeHash') {
+      data = await client.lookupByCodeHash(input);
+      // Also fetch indexed deployments for the timeline
       try {
-        var depR = await fetch(baseUrl + '/codehash/' + input + '/deployments');
-        if (depR.ok) {
-          var depData = await depR.json();
-          d._deployments = depData.deployments || [];
-        }
-      } catch (_) {}
+        var depData = await client.getDeployments(input);
+        data._deployments = depData.deployments || [];
+      } catch (e) {}
+    } else if (type === 'proof') {
+      data = await client.getProof(input);
+    } else {
+      var chainId = $('chainIdInput').value.trim();
+      if (!chainId) { hideLoading(); showError('Chain ID required for address lookup'); setButtonLoading(btn, false); return; }
+      var rpc = $('rpcInput').value.trim() || undefined;
+      data = await client.lookupByAddress(parseInt(chainId, 10), input, rpc);
+      // Fetch deployments
+      if (data.codeHash) {
+        try {
+          var depData2 = await client.getDeployments(data.codeHash);
+          data._deployments = depData2.deployments || [];
+        } catch (e) {}
+      }
     }
-
-    renderResult(type, d);
+    hideLoading();
+    renderResult(type, data);
   } catch (e) {
     hideLoading();
-    showError('Request failed: ' + e.message);
+    var msg = e.status ? 'Not found (HTTP ' + e.status + ')' : 'Request failed';
+    showError(msg + ': ' + (e.message || e));
   } finally {
     setButtonLoading(btn, false);
   }
 }
 
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
 function renderResult(type, data) {
   var panel = $('result');
   var badge = $('statusBadge');
@@ -331,20 +479,26 @@ function renderResult(type, data) {
     badge.className = 'badge badge-verified';
     badge.textContent = 'Verified';
 
-    var html = detail('Proof Hash', data.proofHash) +
-      detail('Code Hash', data.codeHash) +
-      detail('Source Hash', data.sourceHash) +
-      detail('Compiler', data.compilerVersion) +
-      detailHtml('IPFS CID', ipfsLinkFull(data.ipfsCid));
+    var proof = data.proof || data;
+    var html = detail('Proof Hash', data.proofHash || proof.attestation?.proofHash) +
+      detail('Code Hash', proof.attestation?.codeHash || data.codeHash) +
+      detail('Source Hash', proof.attestation?.sourceHash || data.sourceHash) +
+      detail('Compiler', data.compilerVersion || proof.compiler?.version) +
+      detailHtml('IPFS CID', ipfsLinkFull(data.cid || data.ipfsCid));
 
-    // If proof has full verification proof data with source bundle
-    if (data.sourceBundle && data.sourceBundle.sources) {
-      html += renderSourceViewer(data.sourceBundle.sources, data.contract);
+    if (data.submitter) {
+      html += detailHtml('Submitter', addressLink(data.submitter, 11155111));
     }
 
-    // If proof has deployments
-    if (data.deployments && data.deployments.length) {
-      html += renderTimeline(data.deployments);
+    // Source code viewer
+    var sources = proof.sourceBundle?.sources;
+    if (sources) {
+      html += renderSourceViewer(sources, proof.contract);
+    }
+
+    // Deployments from the proof
+    if (proof.deployments?.length) {
+      html += renderTimeline(proof.deployments);
     }
 
     body.innerHTML = html;
@@ -352,6 +506,7 @@ function renderResult(type, data) {
     return;
   }
 
+  // Code hash or address lookup
   var proofs = data.proofs || [];
   var chainIds = data.chainIds || [];
   var verified = proofs.length > 0;
@@ -359,10 +514,7 @@ function renderResult(type, data) {
   badge.className = 'badge ' + (verified ? 'badge-verified' : 'badge-unverified');
   badge.textContent = verified ? proofs.length + ' proof' + (proofs.length > 1 ? 's' : '') : 'Unverified';
 
-  // Update chain count stat when we get chain data
-  if (chainIds.length) {
-    $('chainCount').textContent = chainIds.length;
-  }
+  if (chainIds.length) $('chainCount').textContent = chainIds.length;
 
   var html = detail('Code Hash', data.codeHash);
 
@@ -373,13 +525,15 @@ function renderResult(type, data) {
 
   if (proofs.length) {
     html += '<div class="detail"><div class="detail-label">Proofs</div>' +
-      '<table class="proofs-table"><thead><tr><th>Hash</th><th>Compiler</th><th>CID</th></tr></thead><tbody>' +
+      '<table class="proofs-table"><thead><tr><th>Hash</th><th>Compiler</th><th>IPFS</th><th>Submitter</th></tr></thead><tbody>' +
       proofs.map(function(p) {
-        return '<tr><td>' + esc(truncate(p.proofHash)) + '</td><td>' + esc(p.compilerVersion) + '</td><td>' + ipfsLink(p.ipfsCid) + '</td></tr>';
+        var submitter = p.submitter ? esc(truncate(p.submitter)) : '&mdash;';
+        return '<tr><td><a href="#" onclick="lookupProof(\'' + esc(p.proofHash) + '\');return false">' + esc(truncate(p.proofHash)) + '</a></td>' +
+          '<td>' + esc(p.compilerVersion) + '</td><td>' + ipfsLink(p.cid || p.ipfsCid) + '</td><td>' + submitter + '</td></tr>';
       }).join('') + '</tbody></table></div>';
   }
 
-  // If we fetched deployments, render the timeline
+  // Indexed deployment timeline
   var deployments = data._deployments || [];
   if (deployments.length) {
     html += renderTimeline(deployments);
@@ -387,6 +541,14 @@ function renderResult(type, data) {
 
   body.innerHTML = html;
   panel.classList.add('visible');
+}
+
+function lookupProof(hash) {
+  $('searchType').value = 'proof';
+  $('searchInput').value = hash;
+  $('chainIdInput').style.display = 'none';
+  $('rpcInput').style.display = 'none';
+  search();
 }
 
 function detail(label, value) {
@@ -397,11 +559,21 @@ function detailHtml(label, valueHtml) {
   return '<div class="detail"><div class="detail-label">' + esc(label) + '</div><div class="detail-value">' + (valueHtml || '&mdash;') + '</div></div>';
 }
 
+// ---------------------------------------------------------------------------
+// Source code viewer with line numbers & collapsible
+// ---------------------------------------------------------------------------
 function renderSourceViewer(sources, contractInfo) {
-  var html = '<div class="source-viewer"><div class="detail-label">Source Code</div>';
   var paths = Object.keys(sources);
+  var totalSize = 0;
+  paths.forEach(function(p) { totalSize += (sources[p].content || '').length; });
 
-  // Sort so the main contract path comes first if known
+  var html = '<div class="source-viewer">' +
+    '<button class="source-toggle" onclick="toggleSources(this)">' +
+      '<span class="arrow">&#9654;</span> Source Code (' + paths.length + ' file' + (paths.length > 1 ? 's' : '') + ', ' + formatBytes(totalSize) + ')' +
+    '</button>' +
+    '<div class="source-files">';
+
+  // Sort: main contract path first
   if (contractInfo && contractInfo.path) {
     paths.sort(function(a, b) {
       if (a === contractInfo.path) return -1;
@@ -411,21 +583,42 @@ function renderSourceViewer(sources, contractInfo) {
   }
 
   paths.forEach(function(path, idx) {
-    var source = sources[path];
-    var content = source.content || '';
-    var escapedContent = esc(content);
+    var content = sources[path].content || '';
+    var lines = content.split('\n');
     var uniqueId = 'source-' + idx;
+    var sizeStr = formatBytes(content.length);
+
     html += '<div class="source-file">' +
       '<div class="source-file-header">' +
         '<span class="source-file-path">' + esc(path) + '</span>' +
-        '<button class="copy-btn" onclick="copySource(\'' + uniqueId + '\', this)">Copy</button>' +
+        '<span style="display:flex;gap:0.5rem;align-items:center">' +
+          '<span class="source-file-size">' + esc(sizeStr) + ' &middot; ' + lines.length + ' lines</span>' +
+          '<button class="copy-btn" onclick="copySource(\'' + uniqueId + '\', this)">Copy</button>' +
+        '</span>' +
       '</div>' +
-      '<pre><code id="' + uniqueId + '">' + escapedContent + '</code></pre>' +
+      '<pre><code id="' + uniqueId + '">' +
+        lines.map(function(line, i) {
+          return '<span class="source-line"><span class="line-num">' + (i + 1) + '</span><span class="line-content">' + esc(line) + '</span></span>';
+        }).join('\n') +
+      '</code></pre>' +
     '</div>';
   });
 
-  html += '</div>';
+  html += '</div></div>';
   return html;
+}
+
+function toggleSources(btn) {
+  var files = btn.nextElementSibling;
+  var arrow = btn.querySelector('.arrow');
+  var isOpen = files.classList.contains('visible');
+  if (isOpen) {
+    files.classList.remove('visible');
+    arrow.classList.remove('open');
+  } else {
+    files.classList.add('visible');
+    arrow.classList.add('open');
+  }
 }
 
 function copySource(id, btn) {
@@ -435,33 +628,17 @@ function copySource(id, btn) {
   navigator.clipboard.writeText(text).then(function() {
     btn.textContent = 'Copied!';
     btn.classList.add('copied');
-    setTimeout(function() {
-      btn.textContent = 'Copy';
-      btn.classList.remove('copied');
-    }, 2000);
-  }).catch(function() {
-    // Fallback for older browsers
-    var ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.left = '-9999px';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    btn.textContent = 'Copied!';
-    btn.classList.add('copied');
-    setTimeout(function() {
-      btn.textContent = 'Copy';
-      btn.classList.remove('copied');
-    }, 2000);
-  });
+    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  }).catch(function() {});
 }
 
+// ---------------------------------------------------------------------------
+// Deployment timeline
+// ---------------------------------------------------------------------------
 function renderTimeline(deployments) {
   if (!deployments.length) return '';
 
-  var html = '<div class="detail"><div class="detail-label">Deployment Timeline</div><div class="timeline">';
+  var html = '<div class="detail"><div class="detail-label">Deployments (' + deployments.length + ')</div><div class="timeline">';
 
   deployments.forEach(function(dep) {
     var cid = dep.chainId || 0;
@@ -473,10 +650,10 @@ function renderTimeline(deployments) {
     html += '<div class="timeline-item">' +
       '<div class="timeline-dot"></div>' +
       '<div class="timeline-content">' +
-        '<div class="timeline-chain">' + esc(name) + '</div>' +
+        '<div class="timeline-chain">' + esc(name) + ' <span class="chain-tag">' + cid + '</span></div>' +
         '<div class="timeline-addr">' + addressLink(addr, cid) + '</div>' +
         '<div class="timeline-meta">' +
-          'Block ' + esc(String(block || '?')) +
+          (block ? 'Block ' + esc(String(block)) : '') +
           (txHash ? ' &middot; Tx ' + txLink(txHash, cid) : '') +
         '</div>' +
       '</div>' +
@@ -487,11 +664,9 @@ function renderTimeline(deployments) {
   return html;
 }
 
-function truncate(s) {
-  if (!s || s.length < 20) return s || '\u2014';
-  return s.slice(0, 10) + '...' + s.slice(-8);
-}
-
+// ---------------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------------
 connect();
 </script>
 </body>
