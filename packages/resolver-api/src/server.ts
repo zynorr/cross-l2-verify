@@ -9,7 +9,13 @@ import {
   lookup,
   type IpfsPinClient,
 } from "@cross-l2-verify/sdk";
-import { MemoryIndexStore, syncToHead, startLiveSync } from "@cross-l2-verify/indexer";
+import {
+  MemoryIndexStore,
+  SqliteIndexStore,
+  syncToHead,
+  startLiveSync,
+  type IndexStore,
+} from "@cross-l2-verify/indexer";
 
 import { CachedIpfsClient } from "./cached-ipfs.js";
 import { cors, rateLimit } from "./middleware.js";
@@ -28,6 +34,7 @@ interface ResolverConfig {
   corsOrigins?: string[];
   rateLimitWindowMs?: number;
   rateLimitMax?: number;
+  sqlitePath?: string;
 }
 
 export function createResolverApp(config: ResolverConfig): Express {
@@ -51,8 +58,13 @@ export function createResolverApp(config: ResolverConfig): Express {
   const ipfsClient: IpfsPinClient = new CachedIpfsClient(rawIpfsClient, config.ipfsCacheSize ?? 500);
   const webhooks = new WebhookManager();
 
-  const indexStore = new MemoryIndexStore();
-  let liveSyncHandle: { stop: () => void } | undefined;
+  const indexStore: IndexStore = config.sqlitePath
+    ? new SqliteIndexStore({ path: config.sqlitePath })
+    : new MemoryIndexStore();
+
+  if (config.sqlitePath) {
+    console.log(`Indexer: using SQLite at ${config.sqlitePath}`);
+  }
 
   if (config.enableIndexer !== false) {
     syncToHead({
@@ -64,7 +76,7 @@ export function createResolverApp(config: ResolverConfig): Express {
     }).then((count) => {
       console.log(`Indexer: synced ${count} events to head`);
 
-      liveSyncHandle = startLiveSync({
+      startLiveSync({
         provider: registryRunner,
         registryAddress: config.registryAddress,
         store: indexStore,
@@ -75,10 +87,12 @@ export function createResolverApp(config: ResolverConfig): Express {
     });
   }
 
+  // --- Routes ---
+
   app.get("/", (_request: Request, response: Response) => {
     response.json({
       service: "cross-l2-verify-resolver",
-      version: "0.3.0",
+      version: "0.4.0",
       endpoints: [
         "/health",
         "/codehash/:codeHash",
@@ -87,6 +101,7 @@ export function createResolverApp(config: ResolverConfig): Express {
         "/chains/:chainId/addresses/:address",
         "/proofs/:proofHash",
         "/indexer/status",
+        "/events",
         "/webhooks",
       ],
     });
@@ -107,19 +122,23 @@ export function createResolverApp(config: ResolverConfig): Express {
 
   registerWebhookRoutes(app, webhooks);
 
-  app.get("/codehash/:codeHash/deployments", (_request: Request, response: Response) => {
-    const codeHash = singlePathParam(_request.params.codeHash);
-    const chainId = singleQueryValue(_request, "chainId");
+  app.get("/codehash/:codeHash/deployments", (request: Request, response: Response) => {
+    const codeHash = singlePathParam(request.params.codeHash);
+    const chainId = singleQueryValue(request, "chainId");
+    const { limit, offset } = parsePagination(request);
 
-    const deployments = chainId
+    const allDeployments = chainId
       ? indexStore.deploymentsByChain(codeHash, parsePositiveInteger(chainId))
       : indexStore.deploymentsByCodeHash(codeHash);
 
-    response.json({ codeHash, deployments });
+    const total = allDeployments.length;
+    const deployments = allDeployments.slice(offset, offset + limit);
+
+    response.json({ codeHash, deployments, total, limit, offset });
   });
 
-  app.get("/codehash/:codeHash/chains", (_request: Request, response: Response) => {
-    const codeHash = singlePathParam(_request.params.codeHash);
+  app.get("/codehash/:codeHash/chains", (request: Request, response: Response) => {
+    const codeHash = singlePathParam(request.params.codeHash);
     const chains = indexStore.chainIdsByCodeHash(codeHash);
 
     response.json({ codeHash, chains });
@@ -176,6 +195,32 @@ export function createResolverApp(config: ResolverConfig): Express {
     response.json(result);
   }));
 
+  // --- SSE event stream ---
+  app.get("/events", (request: Request, response: Response) => {
+    response.setHeader("Content-Type", "text/event-stream");
+    response.setHeader("Cache-Control", "no-cache");
+    response.setHeader("Connection", "keep-alive");
+    response.flushHeaders();
+
+    // Send initial status
+    const state = indexStore.state();
+    response.write(`event: status\ndata: ${JSON.stringify(state)}\n\n`);
+
+    // Poll for changes every 12s
+    let lastBlock = state.lastBlockNumber;
+    const interval = setInterval(() => {
+      const current = indexStore.state();
+      if (current.lastBlockNumber !== lastBlock) {
+        lastBlock = current.lastBlockNumber;
+        response.write(`event: status\ndata: ${JSON.stringify(current)}\n\n`);
+      }
+    }, 12_000);
+
+    request.on("close", () => {
+      clearInterval(interval);
+    });
+  });
+
   app.use((error: unknown, _request: Request, response: Response, _next: () => void) => {
     response.status(500).json({
       error: error instanceof Error ? error.message : String(error),
@@ -214,6 +259,7 @@ function readConfigFromEnvironment(): ResolverConfig {
     chainRpcUrls: parseChainRpcUrls(process.env.CHAIN_RPC_URLS),
     indexerFromBlock: fromBlock,
     indexerBatchSize: batchSize,
+    sqlitePath: process.env.SQLITE_PATH,
   };
 }
 
@@ -237,6 +283,20 @@ function parsePositiveInteger(value: string): number {
   }
 
   return parsed;
+}
+
+function parsePagination(request: Request): { limit: number; offset: number } {
+  const rawLimit = singleQueryValue(request, "limit");
+  const rawOffset = singleQueryValue(request, "offset");
+
+  let limit = rawLimit ? Number.parseInt(rawLimit, 10) : 100;
+  let offset = rawOffset ? Number.parseInt(rawOffset, 10) : 0;
+
+  if (!Number.isFinite(limit) || limit < 1) limit = 100;
+  if (limit > 1000) limit = 1000;
+  if (!Number.isFinite(offset) || offset < 0) offset = 0;
+
+  return { limit, offset };
 }
 
 function requiredString(value: string | undefined, message: string): string {

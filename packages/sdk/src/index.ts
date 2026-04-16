@@ -1,4 +1,5 @@
 export * from "./abi/VerificationRegistry.js";
+export * from "./batch.js";
 export * from "./canonical.js";
 export * from "./etherscan.js";
 export * from "./ipfs.js";

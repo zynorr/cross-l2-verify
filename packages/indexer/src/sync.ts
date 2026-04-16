@@ -1,7 +1,6 @@
 import { Contract, getAddress, type AbstractProvider, type EventLog } from "ethers";
 
-import type { MemoryIndexStore } from "./store.js";
-import type { IndexedDeployment, IndexedProof } from "./types.js";
+import type { IndexedDeployment, IndexedProof, IndexStore } from "./types.js";
 
 const REGISTRY_EVENTS_ABI = [
   "event ProofSubmitted(bytes32 indexed codeHash, bytes32 indexed proofHash, bytes32 indexed sourceHash, string compilerVersion, string ipfsCid, address submitter)",
@@ -11,7 +10,7 @@ const REGISTRY_EVENTS_ABI = [
 export interface SyncOptions {
   provider: AbstractProvider;
   registryAddress: string;
-  store: MemoryIndexStore;
+  store: IndexStore;
   fromBlock?: number;
   batchSize?: number;
 }

@@ -24,6 +24,19 @@ export interface IndexState {
   lastBlockNumber: number;
   proofCount: number;
   deploymentCount: number;
+  chainCount?: number;
+}
+
+export interface PageOptions {
+  limit?: number;
+  offset?: number;
+}
+
+export interface PageResult<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
 }
 
 export interface IndexQuery {
@@ -33,4 +46,10 @@ export interface IndexQuery {
   chainIdsByCodeHash(codeHash: string): number[];
   proofByHash(proofHash: string): IndexedProof | undefined;
   state(): IndexState;
+}
+
+export interface IndexStore extends IndexQuery {
+  addProof(proof: IndexedProof): void;
+  addDeployment(deployment: IndexedDeployment): void;
+  readonly lastBlockNumber: number;
 }

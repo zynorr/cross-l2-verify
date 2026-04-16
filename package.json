@@ -14,6 +14,9 @@
     "resolver:dev": "pnpm --filter @cross-l2-verify/resolver-api dev",
     "cli": "pnpm --filter @cross-l2-verify/cli cli"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3"]
+  },
   "devDependencies": {
     "@types/node": "^24.6.0",
     "tsx": "^4.20.5",

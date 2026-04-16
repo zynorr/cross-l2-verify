@@ -1,0 +1,10 @@
+node_modules
+dist
+.git
+.claude
+.env
+.env.*
+*.db
+packages/contracts/cache
+packages/contracts/out
+packages/contracts/broadcast

@@ -10,4 +10,5 @@ out/
 broadcast/
 artifacts/
 coverage/
+*.db
 

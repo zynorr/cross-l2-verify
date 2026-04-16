@@ -141,6 +141,9 @@ pnpm cli hook:hardhat \
 
 ```sh
 L1_RPC_URL=$L1_RPC REGISTRY_ADDRESS=$REGISTRY pnpm resolver:dev
+
+# With persistent SQLite storage
+SQLITE_PATH=./data/index.db L1_RPC_URL=$L1_RPC REGISTRY_ADDRESS=$REGISTRY pnpm resolver:dev
 ```
 
 Endpoints:
@@ -148,14 +151,15 @@ Endpoints:
 ```
 GET /health
 GET /codehash/:codeHash                  Proofs and deployments for a bytecode hash
-GET /codehash/:codeHash/deployments      Indexed deployments (filterable by ?chainId=)
+GET /codehash/:codeHash/deployments      Indexed deployments (?chainId=&limit=&offset=)
 GET /codehash/:codeHash/chains           Chain IDs where the bytecode is deployed
-GET /chains/:chainId/addresses/:address  Lookup by on-chain address
+GET /chains/:chainId/addresses/:address  Lookup by on-chain address (?rpc=)
 GET /proofs/:proofHash                   Single proof with full IPFS payload
 GET /indexer/status                      Proof count, deployment count, last synced block
+GET /events                              SSE event stream for real-time status updates
 ```
 
-The resolver boots an event indexer on startup that syncs historical events and live-polls for new ones. IPFS proof fetches are LRU-cached (default 500 entries).
+The resolver boots an event indexer on startup that syncs historical events and live-polls for new ones. IPFS proof fetches are LRU-cached (default 500 entries). Set `SQLITE_PATH` for persistent storage across restarts.
 
 ## Explorer Client
 
@@ -174,12 +178,17 @@ const status   = await client.indexerStatus();
 
 ## Event Indexer
 
-Syncs `ProofSubmitted` and `DeploymentRegistered` events from the registry into an in-memory store for fast queries without repeated on-chain reads.
+Syncs `ProofSubmitted` and `DeploymentRegistered` events from the registry into a store for fast queries without repeated on-chain reads.
 
 ```ts
-import { MemoryIndexStore, syncToHead, startLiveSync } from "@cross-l2-verify/indexer";
+import { MemoryIndexStore, SqliteIndexStore, syncToHead, startLiveSync } from "@cross-l2-verify/indexer";
 
+// In-memory (for testing)
 const store = new MemoryIndexStore();
+
+// Or persistent SQLite (for production)
+const store = new SqliteIndexStore({ path: "./data/index.db" });
+
 await syncToHead({ provider, registryAddress, store });
 
 store.proofsByCodeHash("0x...");
@@ -195,6 +204,19 @@ Spins up 3 local Anvil chains, deploys the registry on L1, deploys a sample cont
 pnpm integration:test
 ```
 
+## Docker
+
+```sh
+# Start resolver + dashboard
+L1_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com \
+REGISTRY_ADDRESS=0xFAb1DD3F94eBAA64FdB40623858cAC931cE8321c \
+FROM_BLOCK=7880000 \
+docker compose up
+
+# Resolver on :3000, dashboard on :5173
+# SQLite data persists in a Docker volume
+```
+
 ## Environment Variables
 
 | Variable | Required | Description |
@@ -204,6 +226,7 @@ pnpm integration:test
 | `IPFS_GATEWAY` | Optional | Custom IPFS gateway URL |
 | `SOLC_BINARY` | Optional | Path to native solc binary |
 | `ETHERSCAN_API_KEY` | Optional | Etherscan API key for import-etherscan |
+| `SQLITE_PATH` | Optional | Path to SQLite file for persistent indexer storage |
 
 When `PINATA_JWT` is not set, the integration demo uses an in-memory proof store.
 

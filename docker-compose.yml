@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  resolver:
+    build:
+      context: .
+      target: resolver
+    ports:
+      - "3000:3000"
+    volumes:
+      - index-data:/data
+    environment:
+      - L1_RPC_URL=${L1_RPC_URL}
+      - REGISTRY_ADDRESS=${REGISTRY_ADDRESS}
+      - IPFS_GATEWAY=${IPFS_GATEWAY:-https://gateway.pinata.cloud/ipfs}
+      - CHAIN_RPC_URLS=${CHAIN_RPC_URLS:-}
+      - FROM_BLOCK=${FROM_BLOCK:-0}
+      - BATCH_SIZE=${BATCH_SIZE:-10000}
+      - SQLITE_PATH=/data/index.db
+      - PORT=3000
+    restart: unless-stopped
+
+  dashboard:
+    image: joseluisq/static-web-server:2
+    ports:
+      - "5173:80"
+    volumes:
+      - ./packages/dashboard:/public:ro
+    restart: unless-stopped
+
+volumes:
+  index-data:

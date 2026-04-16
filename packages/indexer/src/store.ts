@@ -1,6 +1,6 @@
-import type { IndexedDeployment, IndexedProof, IndexQuery, IndexState } from "./types.js";
+import type { IndexedDeployment, IndexedProof, IndexState, IndexStore } from "./types.js";
 
-export class MemoryIndexStore implements IndexQuery {
+export class MemoryIndexStore implements IndexStore {
   private _proofs = new Map<string, IndexedProof>();
   private _codeHashToProofs = new Map<string, string[]>();
   private _codeHashToDeployments = new Map<string, IndexedDeployment[]>();
@@ -19,7 +19,6 @@ export class MemoryIndexStore implements IndexQuery {
   }
 
   addDeployment(deployment: IndexedDeployment): void {
-    const key = `${deployment.codeHash}:${deployment.chainId}:${deployment.address}`;
     const existing = this._codeHashToDeployments.get(deployment.codeHash) ?? [];
 
     const duplicate = existing.some(
@@ -56,6 +55,11 @@ export class MemoryIndexStore implements IndexQuery {
   }
 
   state(): IndexState {
+    const chainIds = new Set<number>();
+    for (const deployments of this._codeHashToDeployments.values()) {
+      for (const d of deployments) chainIds.add(d.chainId);
+    }
+
     return {
       lastBlockNumber: this._lastBlockNumber,
       proofCount: this._proofs.size,
@@ -63,6 +67,7 @@ export class MemoryIndexStore implements IndexQuery {
         (sum, d) => sum + d.length,
         0,
       ),
+      chainCount: chainIds.size,
     };
   }
 
