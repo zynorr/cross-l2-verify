@@ -11,8 +11,12 @@ import {
   verify,
   verifyOrPropagate,
   detectProxy,
+  reverifyFromCid,
+  reverifyFromProof,
+  fetchEtherscanSource,
   type LookupOptions,
   type SolidityStandardJsonInput,
+  type VerificationProof,
 } from "@cross-l2-verify/sdk";
 
 import { resolveFoundryHookInput, resolveHardhatHookInput } from "./hooks.js";
@@ -359,6 +363,93 @@ program
           eth: costEth.toFixed(6),
         },
       });
+    }),
+  );
+
+program
+  .command("reverify")
+  .description("Independently re-verify a proof by recompiling its source bundle")
+  .option("--cid <cid>", "IPFS CID of the verification proof to re-verify")
+  .option("--proof-file <path>", "Local path to a verification proof JSON file")
+  .option("--ipfs-gateway <url>", "IPFS gateway URL", process.env.IPFS_GATEWAY)
+  .action(
+    wrapAction(async (options) => {
+      if (!options.cid && !options.proofFile) {
+        throw new Error("Either --cid or --proof-file is required");
+      }
+
+      let result;
+      if (options.cid) {
+        const ipfsClient = new PinataIpfsClient({ gatewayUrl: options.ipfsGateway });
+        result = await reverifyFromCid({ cid: options.cid, ipfsClient });
+      } else {
+        const proof = JSON.parse(await readFile(options.proofFile, "utf8")) as VerificationProof;
+        result = await reverifyFromProof({ proof });
+      }
+
+      writeJson({
+        valid: result.valid,
+        contract: `${result.proof.contract.path}:${result.proof.contract.name}`,
+        compiler: result.proof.compiler.version,
+        recompiledRuntimeHash: result.recompiledRuntimeBytecodeHash,
+        recompiledCreationHash: result.recompiledCreationBytecodeHash,
+        checks: result.checks.map((c) => ({
+          name: c.name,
+          passed: c.passed,
+          ...(c.passed ? {} : { expected: c.expected, actual: c.actual }),
+        })),
+      });
+
+      if (!result.valid) {
+        process.exitCode = 1;
+      }
+    }),
+  );
+
+program
+  .command("import-etherscan")
+  .description("Import verified source code from Etherscan and verify it cross-L2")
+  .requiredOption("--address <address>", "Contract address verified on Etherscan")
+  .requiredOption("--source-chain-id <chainId>", "Chain ID where the contract is verified on Etherscan", parsePositiveInteger)
+  .requiredOption("--target-rpc <url>", "RPC URL for the target chain where the contract is deployed")
+  .requiredOption("--target-chain-id <chainId>", "Target chain ID", parsePositiveInteger)
+  .requiredOption("--l1-rpc <url>", "Ethereum L1 RPC URL")
+  .requiredOption("--registry <address>", "VerificationRegistry address on L1")
+  .option("--target-address <address>", "Target address if different from source address")
+  .option("--etherscan-api-key <key>", "Etherscan API key", process.env.ETHERSCAN_API_KEY)
+  .option("--private-key <hex>", "Private key for L1 submissions", process.env.PRIVATE_KEY)
+  .option("--pinata-jwt <jwt>", "Pinata JWT for proof pinning", process.env.PINATA_JWT)
+  .option("--ipfs-gateway <url>", "IPFS gateway URL", process.env.IPFS_GATEWAY)
+  .action(
+    wrapAction(async (options) => {
+      console.error(`Fetching verified source from Etherscan for ${options.address} on chain ${options.sourceChainId}...`);
+
+      const etherscanResult = await fetchEtherscanSource(
+        options.address,
+        options.sourceChainId,
+        options.etherscanApiKey,
+      );
+
+      console.error(`  Contract: ${etherscanResult.contractName}`);
+      console.error(`  Compiler: ${etherscanResult.compilerVersion}`);
+      console.error(`  Sources: ${Object.keys(etherscanResult.compilerInput.sources).length} file(s)`);
+
+      const result = await submitVerificationWithFallback({
+        compilerInput: etherscanResult.compilerInput,
+        compilerVersion: etherscanResult.compilerVersion,
+        contractPath: etherscanResult.contractPath,
+        contractName: etherscanResult.contractName,
+        targetChainId: options.targetChainId,
+        targetAddress: options.targetAddress ?? options.address,
+        targetRpc: options.targetRpc,
+        l1Rpc: options.l1Rpc,
+        registry: options.registry,
+        privateKey: options.privateKey,
+        pinataJwt: options.pinataJwt,
+        ipfsGateway: options.ipfsGateway,
+      });
+
+      writeJson(result);
     }),
   );
 

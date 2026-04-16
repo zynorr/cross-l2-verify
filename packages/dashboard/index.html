@@ -10,6 +10,7 @@
     --text: #e5e5e5; --muted: #888; --accent: #3b82f6;
     --green: #22c55e; --red: #ef4444; --yellow: #eab308;
     --mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    --code-bg: #0d1117;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
@@ -21,7 +22,8 @@
   .config input::placeholder { color: #555; }
   .config button { background: var(--accent); color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; font-weight: 500; white-space: nowrap; }
   .config button:hover { opacity: 0.9; }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem; }
+  .config button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
   .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
   .stat-label { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
   .stat-value { font-size: 1.75rem; font-weight: 700; font-family: var(--mono); }
@@ -30,6 +32,7 @@
   .search-row select { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.5rem; border-radius: 6px; font-size: 0.875rem; }
   .search-row input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.875rem; font-family: var(--mono); }
   .search-row button { background: var(--accent); color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; font-weight: 500; }
+  .search-row button:disabled { opacity: 0.5; cursor: not-allowed; }
   .result { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-top: 1rem; display: none; }
   .result.visible { display: block; }
   .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
@@ -40,14 +43,55 @@
   .detail { margin-bottom: 0.75rem; }
   .detail-label { color: var(--muted); font-size: 0.75rem; margin-bottom: 0.15rem; }
   .detail-value { font-family: var(--mono); font-size: 0.8rem; word-break: break-all; }
+  .detail-value a { color: var(--accent); text-decoration: none; }
+  .detail-value a:hover { text-decoration: underline; }
   .chains-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
   .chain-tag { background: rgba(59,130,246,0.15); color: var(--accent); font-family: var(--mono); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px; }
   .proofs-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
   .proofs-table th { text-align: left; font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
   .proofs-table td { font-family: var(--mono); font-size: 0.8rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
-  .error { color: var(--red); font-size: 0.875rem; margin-top: 0.5rem; }
-  .empty { color: var(--muted); font-size: 0.875rem; text-align: center; padding: 2rem; }
-  @media (max-width: 640px) { .stats { grid-template-columns: 1fr; } .config { flex-direction: column; } }
+  .proofs-table td a { color: var(--accent); text-decoration: none; }
+  .proofs-table td a:hover { text-decoration: underline; }
+
+  /* Error box */
+  .error-box { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; padding: 1rem 1.25rem; margin-top: 0.75rem; display: none; }
+  .error-box.visible { display: flex; gap: 0.75rem; align-items: flex-start; }
+  .error-box-icon { color: var(--red); font-size: 1.1rem; flex-shrink: 0; line-height: 1.4; }
+  .error-box-msg { color: var(--red); font-size: 0.875rem; line-height: 1.4; word-break: break-word; }
+
+  /* Spinner */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; }
+  .spinner-lg { width: 28px; height: 28px; border-width: 3px; }
+  .loading-overlay { display: none; justify-content: center; align-items: center; gap: 0.75rem; padding: 2rem; color: var(--muted); font-size: 0.875rem; }
+  .loading-overlay.visible { display: flex; }
+
+  /* Source code viewer */
+  .source-viewer { margin-top: 1rem; }
+  .source-file { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; }
+  .source-file-header { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.04); border-bottom: 1px solid var(--border); }
+  .source-file-path { font-family: var(--mono); font-size: 0.75rem; color: var(--accent); }
+  .copy-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-family: var(--mono); }
+  .copy-btn:hover { color: var(--text); border-color: var(--muted); }
+  .copy-btn.copied { color: var(--green); border-color: var(--green); }
+  .source-file pre { margin: 0; padding: 0.75rem; overflow-x: auto; }
+  .source-file code { font-family: var(--mono); font-size: 0.8rem; color: #c9d1d9; line-height: 1.5; white-space: pre; }
+
+  /* Deployment timeline */
+  .timeline { margin-top: 0.5rem; }
+  .timeline-item { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
+  .timeline-item:last-child { border-bottom: none; }
+  .timeline-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-top: 0.35rem; }
+  .timeline-content { flex: 1; min-width: 0; }
+  .timeline-chain { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.15rem; }
+  .timeline-addr { font-family: var(--mono); font-size: 0.75rem; word-break: break-all; }
+  .timeline-addr a { color: var(--accent); text-decoration: none; }
+  .timeline-addr a:hover { text-decoration: underline; }
+  .timeline-meta { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); margin-top: 0.1rem; }
+  .timeline-meta a { color: var(--muted); text-decoration: none; }
+  .timeline-meta a:hover { color: var(--accent); text-decoration: underline; }
+
+  @media (max-width: 640px) { .stats { grid-template-columns: repeat(2, 1fr); } .config { flex-direction: column; } }
 </style>
 </head>
 <body>
@@ -57,21 +101,25 @@
 
   <div class="config">
     <input id="resolverUrl" type="text" placeholder="Resolver URL (e.g. http://localhost:3000)" value="http://localhost:3000">
-    <button onclick="connect()">Connect</button>
+    <button id="connectBtn" onclick="connect()">Connect</button>
   </div>
 
   <div class="stats">
     <div class="stat">
       <div class="stat-label">Proofs</div>
-      <div class="stat-value" id="proofCount">—</div>
+      <div class="stat-value" id="proofCount">&mdash;</div>
     </div>
     <div class="stat">
       <div class="stat-label">Deployments</div>
-      <div class="stat-value" id="deploymentCount">—</div>
+      <div class="stat-value" id="deploymentCount">&mdash;</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Chains</div>
+      <div class="stat-value" id="chainCount">&mdash;</div>
     </div>
     <div class="stat">
       <div class="stat-label">Last Block</div>
-      <div class="stat-value" id="lastBlock">—</div>
+      <div class="stat-value" id="lastBlock">&mdash;</div>
     </div>
   </div>
 
@@ -84,9 +132,17 @@
       </select>
       <input id="searchInput" type="text" placeholder="0x...">
       <input id="chainIdInput" type="text" placeholder="Chain ID" style="max-width:100px;display:none">
-      <button onclick="search()">Lookup</button>
+      <button id="searchBtn" onclick="search()">Lookup</button>
     </div>
-    <div id="searchError" class="error"></div>
+    <div id="searchError" class="error-box">
+      <span class="error-box-icon">&#x26A0;</span>
+      <span id="searchErrorMsg" class="error-box-msg"></span>
+    </div>
+  </div>
+
+  <div id="loadingOverlay" class="loading-overlay">
+    <span class="spinner spinner-lg"></span>
+    <span id="loadingText">Looking up...</span>
   </div>
 
   <div id="result" class="result">
@@ -101,6 +157,91 @@
 <script>
 const $ = (id) => document.getElementById(id);
 let baseUrl = 'http://localhost:3000';
+let ipfsGateway = 'https://gateway.pinata.cloud/ipfs/';
+
+const CHAIN_NAMES = {
+  1: 'Ethereum', 10: 'Optimism', 8453: 'Base', 42161: 'Arbitrum',
+  11155111: 'Sepolia', 11155420: 'OP Sepolia', 84532: 'Base Sepolia', 421614: 'Arb Sepolia'
+};
+
+const CHAIN_EXPLORERS = {
+  1: 'https://etherscan.io',
+  10: 'https://optimistic.etherscan.io',
+  8453: 'https://basescan.org',
+  42161: 'https://arbiscan.io',
+  11155111: 'https://sepolia.etherscan.io',
+  11155420: 'https://sepolia-optimism.etherscan.io',
+  84532: 'https://sepolia.basescan.org',
+  421614: 'https://sepolia.arbiscan.io'
+};
+
+function chainName(id) {
+  return CHAIN_NAMES[id] || ('Chain ' + id);
+}
+
+function explorerUrl(chainId) {
+  return CHAIN_EXPLORERS[chainId] || null;
+}
+
+function addressLink(address, chainId) {
+  var base = explorerUrl(chainId);
+  if (!base) return esc(address);
+  return '<a href="' + base + '/address/' + esc(address) + '" target="_blank" rel="noopener">' + esc(address) + '</a>';
+}
+
+function txLink(txHash, chainId) {
+  var base = explorerUrl(chainId);
+  if (!base) return esc(truncate(txHash));
+  return '<a href="' + base + '/tx/' + esc(txHash) + '" target="_blank" rel="noopener">' + esc(truncate(txHash)) + '</a>';
+}
+
+function ipfsLink(cid) {
+  if (!cid) return '&mdash;';
+  return '<a href="' + ipfsGateway + esc(cid) + '" target="_blank" rel="noopener">' + esc(truncate(cid)) + '</a>';
+}
+
+function ipfsLinkFull(cid) {
+  if (!cid) return '&mdash;';
+  return '<a href="' + ipfsGateway + esc(cid) + '" target="_blank" rel="noopener">' + esc(cid) + '</a>';
+}
+
+function esc(s) {
+  if (!s) return '';
+  var d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function showError(msg) {
+  $('searchErrorMsg').textContent = msg;
+  $('searchError').classList.add('visible');
+}
+
+function hideError() {
+  $('searchErrorMsg').textContent = '';
+  $('searchError').classList.remove('visible');
+}
+
+function showLoading(text) {
+  $('loadingText').textContent = text || 'Looking up...';
+  $('loadingOverlay').classList.add('visible');
+  $('result').classList.remove('visible');
+}
+
+function hideLoading() {
+  $('loadingOverlay').classList.remove('visible');
+}
+
+function setButtonLoading(btn, loading) {
+  if (loading) {
+    btn.disabled = true;
+    btn._origText = btn.textContent;
+    btn.innerHTML = '<span class="spinner"></span> ' + btn._origText;
+  } else {
+    btn.disabled = false;
+    btn.textContent = btn._origText || btn.textContent;
+  }
+}
 
 $('searchType').addEventListener('change', () => {
   $('chainIdInput').style.display = $('searchType').value === 'address' ? '' : 'none';
@@ -108,82 +249,140 @@ $('searchType').addEventListener('change', () => {
 
 async function connect() {
   baseUrl = $('resolverUrl').value.replace(/\/$/, '');
+  var btn = $('connectBtn');
+  setButtonLoading(btn, true);
+  hideError();
   try {
-    const r = await fetch(baseUrl + '/indexer/status');
-    const d = await r.json();
+    var r = await fetch(baseUrl + '/indexer/status');
+    var d = await r.json();
     $('proofCount').textContent = d.proofCount ?? 0;
     $('deploymentCount').textContent = d.deploymentCount ?? 0;
     $('lastBlock').textContent = d.lastBlockNumber ? d.lastBlockNumber.toLocaleString() : '0';
+    $('chainCount').textContent = d.chainCount ?? '\u2014';
   } catch (e) {
     $('proofCount').textContent = '!';
     $('deploymentCount').textContent = '!';
+    $('chainCount').textContent = '!';
     $('lastBlock').textContent = '!';
+    showError('Failed to connect to resolver at ' + baseUrl + ': ' + e.message);
+  } finally {
+    setButtonLoading(btn, false);
   }
 }
 
 async function search() {
-  $('searchError').textContent = '';
+  hideError();
   $('result').classList.remove('visible');
-  const type = $('searchType').value;
-  const input = $('searchInput').value.trim();
+  var type = $('searchType').value;
+  var input = $('searchInput').value.trim();
   if (!input) return;
 
-  let url;
+  var url;
   if (type === 'codeHash') url = baseUrl + '/codehash/' + input;
   else if (type === 'proof') url = baseUrl + '/proofs/' + input;
   else {
-    const chainId = $('chainIdInput').value.trim();
-    if (!chainId) { $('searchError').textContent = 'Chain ID required for address lookup'; return; }
+    var chainId = $('chainIdInput').value.trim();
+    if (!chainId) { showError('Chain ID required for address lookup'); return; }
     url = baseUrl + '/chains/' + chainId + '/addresses/' + input;
   }
 
+  var btn = $('searchBtn');
+  setButtonLoading(btn, true);
+  showLoading('Looking up ' + type.replace(/([A-Z])/g, ' $1').toLowerCase() + '...');
+
   try {
-    const r = await fetch(url);
-    if (!r.ok) { $('searchError').textContent = 'Not found (' + r.status + ')'; return; }
-    const d = await r.json();
+    var r = await fetch(url);
+    if (!r.ok) {
+      var errorBody = '';
+      try { errorBody = (await r.json()).error || ''; } catch (_) {}
+      hideLoading();
+      showError('Not found (HTTP ' + r.status + ')' + (errorBody ? ': ' + errorBody : ''));
+      return;
+    }
+    var d = await r.json();
+    hideLoading();
+
+    // If this is a codeHash lookup, also fetch deployments
+    if (type === 'codeHash' && d.codeHash) {
+      try {
+        var depR = await fetch(baseUrl + '/codehash/' + input + '/deployments');
+        if (depR.ok) {
+          var depData = await depR.json();
+          d._deployments = depData.deployments || [];
+        }
+      } catch (_) {}
+    }
+
     renderResult(type, d);
   } catch (e) {
-    $('searchError').textContent = 'Request failed: ' + e.message;
+    hideLoading();
+    showError('Request failed: ' + e.message);
+  } finally {
+    setButtonLoading(btn, false);
   }
 }
 
 function renderResult(type, data) {
-  const panel = $('result');
-  const badge = $('statusBadge');
-  const body = $('resultBody');
+  var panel = $('result');
+  var badge = $('statusBadge');
+  var body = $('resultBody');
 
   if (type === 'proof') {
     badge.className = 'badge badge-verified';
     badge.textContent = 'Verified';
-    body.innerHTML = detail('Proof Hash', data.proofHash) +
+
+    var html = detail('Proof Hash', data.proofHash) +
       detail('Code Hash', data.codeHash) +
       detail('Source Hash', data.sourceHash) +
       detail('Compiler', data.compilerVersion) +
-      detail('IPFS CID', data.ipfsCid);
+      detailHtml('IPFS CID', ipfsLinkFull(data.ipfsCid));
+
+    // If proof has full verification proof data with source bundle
+    if (data.sourceBundle && data.sourceBundle.sources) {
+      html += renderSourceViewer(data.sourceBundle.sources, data.contract);
+    }
+
+    // If proof has deployments
+    if (data.deployments && data.deployments.length) {
+      html += renderTimeline(data.deployments);
+    }
+
+    body.innerHTML = html;
     panel.classList.add('visible');
     return;
   }
 
-  const proofs = data.proofs || [];
-  const chainIds = data.chainIds || [];
-  const verified = proofs.length > 0;
+  var proofs = data.proofs || [];
+  var chainIds = data.chainIds || [];
+  var verified = proofs.length > 0;
 
   badge.className = 'badge ' + (verified ? 'badge-verified' : 'badge-unverified');
   badge.textContent = verified ? proofs.length + ' proof' + (proofs.length > 1 ? 's' : '') : 'Unverified';
 
-  let html = detail('Code Hash', data.codeHash);
+  // Update chain count stat when we get chain data
+  if (chainIds.length) {
+    $('chainCount').textContent = chainIds.length;
+  }
+
+  var html = detail('Code Hash', data.codeHash);
 
   if (chainIds.length) {
     html += '<div class="detail"><div class="detail-label">Deployed Chains</div><div class="chains-list">' +
-      chainIds.map(c => '<span class="chain-tag">' + c + '</span>').join('') + '</div></div>';
+      chainIds.map(function(c) { return '<span class="chain-tag">' + esc(chainName(c)) + ' (' + c + ')</span>'; }).join('') + '</div></div>';
   }
 
   if (proofs.length) {
     html += '<div class="detail"><div class="detail-label">Proofs</div>' +
       '<table class="proofs-table"><thead><tr><th>Hash</th><th>Compiler</th><th>CID</th></tr></thead><tbody>' +
-      proofs.map(p =>
-        '<tr><td>' + truncate(p.proofHash) + '</td><td>' + p.compilerVersion + '</td><td>' + truncate(p.ipfsCid) + '</td></tr>'
-      ).join('') + '</tbody></table></div>';
+      proofs.map(function(p) {
+        return '<tr><td>' + esc(truncate(p.proofHash)) + '</td><td>' + esc(p.compilerVersion) + '</td><td>' + ipfsLink(p.ipfsCid) + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  // If we fetched deployments, render the timeline
+  var deployments = data._deployments || [];
+  if (deployments.length) {
+    html += renderTimeline(deployments);
   }
 
   body.innerHTML = html;
@@ -191,11 +390,105 @@ function renderResult(type, data) {
 }
 
 function detail(label, value) {
-  return '<div class="detail"><div class="detail-label">' + label + '</div><div class="detail-value">' + (value || '—') + '</div></div>';
+  return '<div class="detail"><div class="detail-label">' + esc(label) + '</div><div class="detail-value">' + esc(value || '\u2014') + '</div></div>';
+}
+
+function detailHtml(label, valueHtml) {
+  return '<div class="detail"><div class="detail-label">' + esc(label) + '</div><div class="detail-value">' + (valueHtml || '&mdash;') + '</div></div>';
+}
+
+function renderSourceViewer(sources, contractInfo) {
+  var html = '<div class="source-viewer"><div class="detail-label">Source Code</div>';
+  var paths = Object.keys(sources);
+
+  // Sort so the main contract path comes first if known
+  if (contractInfo && contractInfo.path) {
+    paths.sort(function(a, b) {
+      if (a === contractInfo.path) return -1;
+      if (b === contractInfo.path) return 1;
+      return a.localeCompare(b);
+    });
+  }
+
+  paths.forEach(function(path, idx) {
+    var source = sources[path];
+    var content = source.content || '';
+    var escapedContent = esc(content);
+    var uniqueId = 'source-' + idx;
+    html += '<div class="source-file">' +
+      '<div class="source-file-header">' +
+        '<span class="source-file-path">' + esc(path) + '</span>' +
+        '<button class="copy-btn" onclick="copySource(\'' + uniqueId + '\', this)">Copy</button>' +
+      '</div>' +
+      '<pre><code id="' + uniqueId + '">' + escapedContent + '</code></pre>' +
+    '</div>';
+  });
+
+  html += '</div>';
+  return html;
+}
+
+function copySource(id, btn) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  var text = el.textContent;
+  navigator.clipboard.writeText(text).then(function() {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(function() {
+      btn.textContent = 'Copy';
+      btn.classList.remove('copied');
+    }, 2000);
+  }).catch(function() {
+    // Fallback for older browsers
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(function() {
+      btn.textContent = 'Copy';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+
+function renderTimeline(deployments) {
+  if (!deployments.length) return '';
+
+  var html = '<div class="detail"><div class="detail-label">Deployment Timeline</div><div class="timeline">';
+
+  deployments.forEach(function(dep) {
+    var cid = dep.chainId || 0;
+    var name = chainName(cid);
+    var addr = dep.address || '';
+    var block = dep.blockNumber;
+    var txHash = dep.transactionHash || '';
+
+    html += '<div class="timeline-item">' +
+      '<div class="timeline-dot"></div>' +
+      '<div class="timeline-content">' +
+        '<div class="timeline-chain">' + esc(name) + '</div>' +
+        '<div class="timeline-addr">' + addressLink(addr, cid) + '</div>' +
+        '<div class="timeline-meta">' +
+          'Block ' + esc(String(block || '?')) +
+          (txHash ? ' &middot; Tx ' + txLink(txHash, cid) : '') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  });
+
+  html += '</div></div>';
+  return html;
 }
 
 function truncate(s) {
-  if (!s || s.length < 20) return s || '—';
+  if (!s || s.length < 20) return s || '\u2014';
   return s.slice(0, 10) + '...' + s.slice(-8);
 }
 

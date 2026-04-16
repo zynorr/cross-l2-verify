@@ -90,6 +90,21 @@ pnpm cli status \
   --code-hash 0x... \
   --l1-rpc $L1_RPC \
   --registry $REGISTRY
+
+# Re-verify a proof independently (recompiles from source)
+pnpm cli reverify --cid bafkrei...
+
+# Re-verify from a local proof file
+pnpm cli reverify --proof-file proof.json
+
+# Import verified source from Etherscan and cross-L2 verify
+pnpm cli import-etherscan \
+  --address 0x... \
+  --source-chain-id 1 \
+  --target-rpc $L2_RPC \
+  --target-chain-id 10 \
+  --l1-rpc $L1_RPC \
+  --registry $REGISTRY
 ```
 
 ## Deploy Hooks
@@ -188,6 +203,7 @@ pnpm integration:test
 | `PINATA_JWT` | For IPFS pinning | Pinata API token |
 | `IPFS_GATEWAY` | Optional | Custom IPFS gateway URL |
 | `SOLC_BINARY` | Optional | Path to native solc binary |
+| `ETHERSCAN_API_KEY` | Optional | Etherscan API key for import-etherscan |
 
 When `PINATA_JWT` is not set, the integration demo uses an in-memory proof store.
 

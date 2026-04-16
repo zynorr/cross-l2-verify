@@ -20,8 +20,6 @@ jobs:
           node-version: 20
           cache: pnpm
 
-      - uses: foundry-rs/foundry-toolchain@v1
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -36,6 +34,8 @@ jobs:
           pnpm --filter @cross-l2-verify/sdk test
           pnpm --filter @cross-l2-verify/tooling test
           pnpm --filter @cross-l2-verify/indexer test
+          pnpm --filter @cross-l2-verify/explorer-client test
+          pnpm --filter @cross-l2-verify/resolver-api test
           pnpm --filter @cross-l2-verify/cli test
 
   contracts:
