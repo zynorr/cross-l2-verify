@@ -871,6 +871,8 @@ button { font-family: var(--sans); }
 }
 </style>
 </head>
+<!-- Optional: set window.RESOLVER_URL before this script to skip the connect UI -->
+<script src="config.js" onerror="void 0"></script>
 <body>
 
 <div class="app">
@@ -917,7 +919,7 @@ button { font-family: var(--sans); }
     <!-- ========== Overview Tab ========== -->
     <div id="panel-overview" class="tab-panel active">
 
-      <div class="config-bar">
+      <div class="config-bar" id="configBar">
         <input id="resolverUrl" class="input" type="text" placeholder="Resolver URL  (e.g. http://localhost:3000)" value="http://localhost:3000" spellcheck="false" style="font-size:0.83rem;">
         <button id="connectBtn" class="btn btn-primary" onclick="connect()">Connect</button>
         <button class="btn btn-ghost" onclick="manualRefresh()" title="Refresh stats" id="refreshBtn" style="display:none">&#8635;</button>
@@ -2036,7 +2038,17 @@ loadHistory();
 renderHistory();
 renderActivity();
 $('resolverUrl').addEventListener('keydown', function(e) { if (e.key === 'Enter') connect(); });
-connect();
+
+// Pre-configure resolver: ?resolver=URL > window.RESOLVER_URL > manual input (local dev)
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  var preConfigured = params.get('resolver') || (typeof window.RESOLVER_URL !== 'undefined' ? window.RESOLVER_URL : '') || '';
+  if (preConfigured) {
+    $('resolverUrl').value = preConfigured;
+    $('configBar').style.display = 'none';
+  }
+  connect();
+})();
 </script>
 </body>
 </html>
