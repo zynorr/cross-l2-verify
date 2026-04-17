@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: cross-l2-verify-resolver
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: node packages/resolver-api/dist/server.js
+    plan: free
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: L1_RPC_URL
+        sync: false
+      - key: REGISTRY_ADDRESS
+        sync: false
+      - key: CHAIN_RPC_URLS
+        sync: false
+      - key: PINATA_JWT
+        sync: false
+      - key: IPFS_GATEWAY
+        value: https://gateway.pinata.cloud/ipfs
+      - key: FROM_BLOCK
+        value: "10677000"
+      - key: SQLITE_PATH
+        value: /data/index.db
+    disk:
+      name: resolver-data
+      mountPath: /data
+      sizeGB: 1
