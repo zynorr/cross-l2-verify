@@ -1,672 +1,2041 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>cross-l2-verify</title>
 <style>
-  :root {
-    --bg: #0a0a0a; --surface: #141414; --border: #222;
-    --text: #e5e5e5; --muted: #888; --accent: #3b82f6;
-    --green: #22c55e; --red: #ef4444; --yellow: #eab308;
-    --mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
-    --code-bg: #0d1117;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
-  .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
-  h1 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.25rem; }
-  .subtitle { color: var(--muted); font-size: 0.875rem; margin-bottom: 2rem; }
-  .config { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
-  .config input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.875rem; font-family: var(--mono); }
-  .config input::placeholder { color: #555; }
-  .config button { background: var(--accent); color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; font-weight: 500; white-space: nowrap; }
-  .config button:hover { opacity: 0.9; }
-  .config button:disabled { opacity: 0.5; cursor: not-allowed; }
+/* ===================================================================
+   Design Tokens
+   =================================================================== */
+:root {
+  /* Dark theme (default) */
+  --bg-0: #07070a;
+  --bg-1: #0d0d12;
+  --bg-2: #16161e;
+  --bg-3: #1e1e28;
+  --bg-4: #25252f;
+  --border-subtle: rgba(255,255,255,0.04);
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.14);
+  --text-primary: #f2f2f7;
+  --text-secondary: #9898a8;
+  --text-muted: #606070;
+  --accent: #6366f1;
+  --accent-2: #a855f7;
+  --accent-hover: #818cf8;
+  --accent-glow: rgba(99,102,241,0.12);
+  --accent-glow-strong: rgba(99,102,241,0.22);
+  --green: #22c55e;
+  --green-dim: #16a34a;
+  --green-glow: rgba(34,197,94,0.10);
+  --red: #ef4444;
+  --red-glow: rgba(239,68,68,0.10);
+  --yellow: #f59e0b;
+  --yellow-glow: rgba(245,158,11,0.10);
+  --cyan: #06b6d4;
+  --cyan-glow: rgba(6,182,212,0.10);
+  --orange: #f97316;
+  --mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Cascadia Code', monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow: 0 4px 16px rgba(0,0,0,0.5);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.6);
+  --shadow-accent: 0 4px 24px rgba(99,102,241,0.2);
+  --transition: 140ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
 
-  /* Connection status indicator */
-  .conn-status { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; margin-left: 0.5rem; }
-  .conn-dot { width: 6px; height: 6px; border-radius: 50%; }
-  .conn-dot.ok { background: var(--green); }
-  .conn-dot.err { background: var(--red); }
-  .conn-dot.pending { background: var(--yellow); animation: pulse 1s ease-in-out infinite; }
-  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+[data-theme="light"] {
+  --bg-0: #ffffff;
+  --bg-1: #f5f5f8;
+  --bg-2: #ededf2;
+  --bg-3: #e4e4ec;
+  --bg-4: #d8d8e5;
+  --border-subtle: rgba(0,0,0,0.03);
+  --border: rgba(0,0,0,0.07);
+  --border-strong: rgba(0,0,0,0.12);
+  --text-primary: #111118;
+  --text-secondary: #44444e;
+  --text-muted: #8888a0;
+  --accent: #4f46e5;
+  --accent-2: #9333ea;
+  --accent-hover: #6366f1;
+  --accent-glow: rgba(79,70,229,0.08);
+  --accent-glow-strong: rgba(79,70,229,0.15);
+  --green: #16a34a;
+  --green-dim: #15803d;
+  --green-glow: rgba(22,163,74,0.08);
+  --red: #dc2626;
+  --red-glow: rgba(220,38,38,0.08);
+  --yellow: #d97706;
+  --yellow-glow: rgba(217,119,6,0.08);
+  --cyan: #0891b2;
+  --cyan-glow: rgba(8,145,178,0.08);
+  --orange: #ea580c;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+  --shadow: 0 4px 16px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.10);
+  --shadow-accent: 0 4px 24px rgba(79,70,229,0.12);
+}
 
-  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
-  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
-  .stat-label { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
-  .stat-value { font-size: 1.75rem; font-weight: 700; font-family: var(--mono); }
+/* ===================================================================
+   Reset & Base
+   =================================================================== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; scroll-behavior: smooth; }
+body {
+  font-family: var(--sans);
+  background: var(--bg-0);
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.5;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99,102,241,0.06) 0%, transparent 70%);
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+button { font-family: var(--sans); }
 
-  /* Skeleton loader */
-  .skeleton { background: linear-gradient(90deg, var(--surface) 25%, #1a1a1a 50%, var(--surface) 75%); background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; border-radius: 4px; height: 1em; display: inline-block; }
-  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-  .skeleton-stat { width: 3rem; height: 2rem; }
+/* ===================================================================
+   Layout
+   =================================================================== */
+.app { display: flex; flex-direction: column; min-height: 100vh; }
 
-  .search { margin-bottom: 2rem; }
-  .search-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
-  .search-row select { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.5rem; border-radius: 6px; font-size: 0.875rem; }
-  .search-row input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.875rem; font-family: var(--mono); }
-  .search-row input::placeholder { color: #555; }
-  .search-row button { background: var(--accent); color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; font-weight: 500; }
-  .search-row button:disabled { opacity: 0.5; cursor: not-allowed; }
-  .result { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-top: 1rem; display: none; }
-  .result.visible { display: block; }
-  .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-  .badge { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 999px; }
-  .badge-verified { background: rgba(34,197,94,0.15); color: var(--green); }
-  .badge-unverified { background: rgba(239,68,68,0.15); color: var(--red); }
-  .detail { margin-bottom: 0.75rem; }
-  .detail-label { color: var(--muted); font-size: 0.75rem; margin-bottom: 0.15rem; }
-  .detail-value { font-family: var(--mono); font-size: 0.8rem; word-break: break-all; }
-  .detail-value a { color: var(--accent); text-decoration: none; }
-  .detail-value a:hover { text-decoration: underline; }
-  .chains-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-  .chain-tag { background: rgba(59,130,246,0.15); color: var(--accent); font-family: var(--mono); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px; }
-  .proofs-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
-  .proofs-table th { text-align: left; font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
-  .proofs-table td { font-family: var(--mono); font-size: 0.8rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
-  .proofs-table td a { color: var(--accent); text-decoration: none; }
-  .proofs-table td a:hover { text-decoration: underline; }
+/* ===================================================================
+   Header
+   =================================================================== */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.5rem;
+  height: 54px;
+  background: rgba(13,13,18,0.85);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+[data-theme="light"] .header { background: rgba(245,245,248,0.88); }
 
-  .error-box { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; padding: 1rem 1.25rem; margin-top: 0.75rem; display: none; }
-  .error-box.visible { display: flex; gap: 0.75rem; align-items: flex-start; }
-  .error-box-icon { color: var(--red); font-size: 1.1rem; flex-shrink: 0; line-height: 1.4; }
-  .error-box-msg { color: var(--red); font-size: 0.875rem; line-height: 1.4; word-break: break-word; }
+.header-left { display: flex; align-items: center; gap: 1rem; }
+.header-right { display: flex; align-items: center; gap: 0.5rem; }
 
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; }
-  .spinner-lg { width: 28px; height: 28px; border-width: 3px; }
-  .loading-overlay { display: none; justify-content: center; align-items: center; gap: 0.75rem; padding: 2rem; color: var(--muted); font-size: 0.875rem; }
-  .loading-overlay.visible { display: flex; }
+/* Logo */
+.logo { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; }
+.logo-mark {
+  width: 30px; height: 30px; border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 0.72rem; color: #fff;
+  box-shadow: 0 0 16px rgba(99,102,241,0.35);
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+.logo-mark::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
+}
+.logo-name { font-weight: 700; font-size: 0.88rem; letter-spacing: -0.03em; }
+.logo-name span { color: var(--text-muted); font-weight: 400; }
 
-  /* Source code viewer */
-  .source-viewer { margin-top: 1rem; }
-  .source-toggle { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--accent); font-size: 0.8rem; margin-bottom: 0.5rem; background: none; border: none; font-family: inherit; }
-  .source-toggle:hover { text-decoration: underline; }
-  .source-toggle .arrow { transition: transform 0.2s; display: inline-block; }
-  .source-toggle .arrow.open { transform: rotate(90deg); }
-  .source-files { display: none; }
-  .source-files.visible { display: block; }
-  .source-file { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; }
-  .source-file-header { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.04); border-bottom: 1px solid var(--border); }
-  .source-file-path { font-family: var(--mono); font-size: 0.75rem; color: var(--accent); }
-  .source-file-size { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
-  .copy-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-family: var(--mono); }
-  .copy-btn:hover { color: var(--text); border-color: var(--muted); }
-  .copy-btn.copied { color: var(--green); border-color: var(--green); }
-  .source-file pre { margin: 0; padding: 0; overflow-x: auto; max-height: 400px; overflow-y: auto; }
-  .source-file code { font-family: var(--mono); font-size: 0.8rem; color: #c9d1d9; line-height: 1.6; white-space: pre; display: block; }
-  .source-line { display: flex; }
-  .source-line:hover { background: rgba(255,255,255,0.04); }
-  .line-num { display: inline-block; min-width: 3rem; padding: 0 0.5rem; text-align: right; color: #484f58; user-select: none; flex-shrink: 0; border-right: 1px solid var(--border); margin-right: 0.75rem; }
-  .line-content { flex: 1; padding-right: 0.75rem; }
+/* Connection pill */
+.conn-pill {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.22rem 0.65rem; border-radius: 999px;
+  font-size: 0.68rem; font-weight: 500;
+  background: var(--bg-2); border: 1px solid var(--border);
+  color: var(--text-secondary);
+  transition: all var(--transition);
+}
+.conn-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.conn-dot.ok { background: var(--green); box-shadow: 0 0 6px var(--green-dim); }
+.conn-dot.err { background: var(--red); box-shadow: 0 0 6px var(--red); }
+.conn-dot.pending { background: var(--yellow); animation: blink 1.4s ease-in-out infinite; }
+.conn-dot.idle { background: var(--text-muted); }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
 
-  /* Deployment timeline */
-  .timeline { margin-top: 0.5rem; }
-  .timeline-item { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
-  .timeline-item:last-child { border-bottom: none; }
-  .timeline-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-top: 0.35rem; }
-  .timeline-content { flex: 1; min-width: 0; }
-  .timeline-chain { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.15rem; }
-  .timeline-addr { font-family: var(--mono); font-size: 0.75rem; word-break: break-all; }
-  .timeline-addr a { color: var(--accent); text-decoration: none; }
-  .timeline-addr a:hover { text-decoration: underline; }
-  .timeline-meta { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); margin-top: 0.1rem; }
-  .timeline-meta a { color: var(--muted); text-decoration: none; }
-  .timeline-meta a:hover { color: var(--accent); text-decoration: underline; }
+/* Kbd hint */
+.kbd-hint {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  background: var(--bg-2); border: 1px solid var(--border);
+  padding: 0.2rem 0.55rem; border-radius: var(--radius-sm);
+  font-size: 0.68rem; color: var(--text-muted); cursor: pointer;
+  transition: all var(--transition);
+}
+.kbd-hint:hover { border-color: var(--accent); color: var(--accent); }
+.kbd-hint kbd {
+  font-family: var(--sans); font-size: 0.62rem;
+  background: var(--bg-3); border: 1px solid var(--border-strong);
+  padding: 0.05rem 0.3rem; border-radius: 3px;
+}
 
-  /* Auto-refresh indicator */
-  .refresh-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-  .refresh-info { font-size: 0.7rem; color: var(--muted); font-family: var(--mono); }
-  .refresh-toggle { display: flex; align-items: center; gap: 0.35rem; }
-  .refresh-toggle label { font-size: 0.75rem; color: var(--muted); cursor: pointer; }
-  .refresh-toggle input[type="checkbox"] { accent-color: var(--accent); }
+/* Icon buttons */
+.icon-btn {
+  width: 32px; height: 32px; border-radius: var(--radius-sm);
+  background: var(--bg-2); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--text-secondary); font-size: 1rem;
+  transition: all var(--transition); flex-shrink: 0;
+}
+.icon-btn:hover { border-color: var(--border-strong); color: var(--text-primary); background: var(--bg-3); }
 
-  @media (max-width: 640px) { .stats { grid-template-columns: repeat(2, 1fr); } .config { flex-direction: column; } }
+/* ===================================================================
+   Tabs
+   =================================================================== */
+.tabs {
+  display: flex; align-items: stretch;
+  background: var(--bg-1); border-bottom: 1px solid var(--border);
+  padding: 0 1.5rem;
+  gap: 0;
+}
+.tab {
+  padding: 0 1rem; height: 40px;
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.78rem; font-weight: 500;
+  color: var(--text-muted); cursor: pointer;
+  border-bottom: 2px solid transparent;
+  border-top: none; border-left: none; border-right: none;
+  transition: all var(--transition); background: none;
+  white-space: nowrap;
+}
+.tab:hover { color: var(--text-secondary); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 17px; height: 17px; padding: 0 4px;
+  font-size: 0.62rem; font-weight: 700; border-radius: 999px;
+  background: var(--accent); color: #fff;
+}
+.tab-icon { font-size: 0.85rem; opacity: 0.7; }
+
+/* ===================================================================
+   Main Content
+   =================================================================== */
+.main { flex: 1; padding: 1.5rem; max-width: 1120px; width: 100%; margin: 0 auto; }
+.tab-panel { display: none; animation: fadeUp 0.18s ease-out; }
+.tab-panel.active { display: block; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ===================================================================
+   Common Inputs & Buttons
+   =================================================================== */
+.input {
+  background: var(--bg-2); border: 1px solid var(--border);
+  color: var(--text-primary); padding: 0.55rem 0.85rem;
+  border-radius: var(--radius); font-size: 0.85rem;
+  font-family: var(--mono); transition: all var(--transition);
+  outline: none;
+}
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.input::placeholder { color: var(--text-muted); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+  padding: 0.55rem 1.1rem; border-radius: var(--radius);
+  font-size: 0.83rem; font-weight: 500; cursor: pointer;
+  border: none; font-family: var(--sans); transition: all var(--transition);
+  white-space: nowrap; line-height: 1;
+}
+.btn-primary {
+  background: var(--accent); color: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.btn-primary:hover { background: var(--accent-hover); box-shadow: var(--shadow-accent); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+.btn-ghost {
+  background: var(--bg-2); color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { border-color: var(--border-strong); color: var(--text-primary); background: var(--bg-3); }
+.btn-sm { padding: 0.35rem 0.75rem; font-size: 0.75rem; }
+.btn-danger { background: var(--red-glow); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+.btn-danger:hover { background: rgba(239,68,68,0.15); }
+
+/* ===================================================================
+   Overview Tab
+   =================================================================== */
+.config-bar {
+  display: flex; gap: 0.5rem; margin-bottom: 1.25rem; align-items: center;
+}
+.config-bar .input { flex: 1; }
+
+/* Stats grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.875rem;
+  margin-bottom: 1.25rem;
+}
+.stat-card {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.1rem 1.2rem 1.1rem;
+  position: relative; overflow: hidden;
+  transition: all var(--transition);
+  cursor: default;
+}
+.stat-card:hover { border-color: var(--border-strong); transform: translateY(-1px); box-shadow: var(--shadow); }
+.stat-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.stat-card:nth-child(1)::before { background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+.stat-card:nth-child(2)::before { background: linear-gradient(90deg, var(--green), #4ade80); }
+.stat-card:nth-child(3)::before { background: linear-gradient(90deg, var(--cyan), #22d3ee); }
+.stat-card:nth-child(4)::before { background: linear-gradient(90deg, var(--yellow), #fbbf24); }
+
+.stat-card-glow {
+  position: absolute; top: 0; right: 0; width: 80px; height: 80px;
+  border-radius: 50%; opacity: 0.06; pointer-events: none;
+}
+.stat-card:nth-child(1) .stat-card-glow { background: var(--accent); }
+.stat-card:nth-child(2) .stat-card-glow { background: var(--green); }
+.stat-card:nth-child(3) .stat-card-glow { background: var(--cyan); }
+.stat-card:nth-child(4) .stat-card-glow { background: var(--yellow); }
+
+.stat-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.75rem; }
+.stat-icon {
+  width: 34px; height: 34px; border-radius: var(--radius);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem;
+}
+.stat-card:nth-child(1) .stat-icon { background: var(--accent-glow); color: var(--accent); }
+.stat-card:nth-child(2) .stat-icon { background: var(--green-glow); color: var(--green); }
+.stat-card:nth-child(3) .stat-icon { background: var(--cyan-glow); color: var(--cyan); }
+.stat-card:nth-child(4) .stat-icon { background: var(--yellow-glow); color: var(--yellow); }
+
+.stat-label { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; }
+.stat-value { font-size: 1.75rem; font-weight: 700; font-family: var(--mono); letter-spacing: -0.03em; line-height: 1.1; margin-top: 0.15rem; }
+.stat-sub { font-size: 0.67rem; color: var(--text-muted); margin-top: 0.25rem; font-family: var(--mono); }
+
+/* Skeleton */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-2) 25%, var(--bg-3) 50%, var(--bg-2) 75%);
+  background-size: 300% 100%; animation: shimmer 1.8s ease-in-out infinite;
+  border-radius: 4px; display: inline-block;
+}
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.skel-stat { width: 5rem; height: 2rem; }
+.skel-sub { width: 3rem; height: 0.8rem; margin-top: 0.25rem; }
+
+/* Sync progress bar */
+.sync-bar-wrap {
+  background: var(--bg-1); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 0.85rem 1.1rem;
+  margin-bottom: 1.25rem; display: none;
+}
+.sync-bar-wrap.visible { display: block; }
+.sync-bar-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 0.55rem;
+}
+.sync-bar-label { font-size: 0.72rem; color: var(--text-secondary); font-weight: 500; }
+.sync-bar-pct { font-size: 0.72rem; font-family: var(--mono); color: var(--text-muted); }
+.sync-bar-track {
+  height: 4px; background: var(--bg-3); border-radius: 2px; overflow: hidden;
+}
+.sync-bar-fill {
+  height: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 0.6s ease;
+}
+.sync-bar-fill.indeterminate {
+  width: 40% !important;
+  animation: indeterminate 1.5s ease-in-out infinite;
+}
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+/* Refresh bar */
+.refresh-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 1.1rem;
+}
+.refresh-left { display: flex; align-items: center; gap: 0.75rem; }
+.refresh-info { font-size: 0.67rem; color: var(--text-muted); font-family: var(--mono); }
+.refresh-right { display: flex; align-items: center; gap: 0.6rem; }
+.toggle-group { display: flex; align-items: center; gap: 0.35rem; }
+.toggle-group label { font-size: 0.7rem; color: var(--text-muted); cursor: pointer; user-select: none; }
+.toggle-switch { position: relative; width: 34px; height: 18px; cursor: pointer; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; inset: 0; background: var(--bg-3); border-radius: 9px;
+  transition: var(--transition); border: 1px solid var(--border);
+}
+.toggle-slider::before {
+  content: ''; position: absolute; width: 12px; height: 12px;
+  left: 2px; bottom: 2px; background: var(--text-muted);
+  border-radius: 50%; transition: var(--transition);
+}
+.toggle-switch input:checked + .toggle-slider { background: var(--accent-glow); border-color: var(--accent); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); background: var(--accent); }
+
+/* ===================================================================
+   Search Tab
+   =================================================================== */
+.search-section { margin-bottom: 1.5rem; }
+
+.search-bar {
+  display: flex; gap: 0.5rem; margin-bottom: 0.75rem;
+  background: var(--bg-1); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 0.4rem;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.search-bar:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+.search-type-pills { display: flex; gap: 0.25rem; align-items: center; }
+.type-pill {
+  padding: 0.3rem 0.65rem; border-radius: var(--radius);
+  font-size: 0.72rem; font-weight: 500; cursor: pointer;
+  background: none; border: none; color: var(--text-muted);
+  transition: all var(--transition); white-space: nowrap;
+}
+.type-pill.active { background: var(--accent-glow); color: var(--accent); }
+.type-pill:hover:not(.active) { color: var(--text-secondary); background: var(--bg-3); }
+
+.search-divider { width: 1px; height: 22px; background: var(--border); flex-shrink: 0; margin: 0 0.1rem; }
+
+.search-input {
+  flex: 1; background: transparent; border: none;
+  color: var(--text-primary); padding: 0.3rem 0.5rem;
+  font-size: 0.87rem; font-family: var(--mono); outline: none;
+}
+.search-input::placeholder { color: var(--text-muted); }
+
+.search-btn-wrap { display: flex; align-items: center; gap: 0.3rem; }
+
+.auto-detect-badge {
+  font-size: 0.62rem; color: var(--accent); padding: 0.15rem 0.45rem;
+  background: var(--accent-glow); border-radius: 999px; font-weight: 600;
+  border: 1px solid rgba(99,102,241,0.2); white-space: nowrap;
+  opacity: 0; transition: opacity var(--transition);
+}
+.auto-detect-badge.visible { opacity: 1; }
+
+.search-extras {
+  display: flex; gap: 0.5rem; margin-bottom: 0.75rem;
+}
+.search-extras .input { font-size: 0.82rem; }
+
+/* Search history */
+.search-history-wrap { margin-bottom: 0.75rem; display: none; }
+.search-history-wrap.visible { display: block; }
+.history-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+.history-title { font-size: 0.68rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+.history-clear { font-size: 0.65rem; color: var(--text-muted); cursor: pointer; background: none; border: none; transition: color var(--transition); }
+.history-clear:hover { color: var(--red); }
+.search-history { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.history-chip {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.18rem 0.55rem; border-radius: 999px;
+  background: var(--bg-2); border: 1px solid var(--border);
+  font-size: 0.68rem; font-family: var(--mono); color: var(--text-secondary);
+  cursor: pointer; transition: all var(--transition);
+}
+.history-chip:hover { border-color: var(--accent); color: var(--accent); }
+.hist-type { font-size: 0.57rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); font-family: var(--sans); letter-spacing: 0.04em; }
+.hist-remove { font-size: 0.8rem; color: var(--text-muted); margin-left: 0.1rem; line-height: 1; }
+.hist-remove:hover { color: var(--red); }
+
+/* Error / info boxes */
+.alert-box {
+  border-radius: var(--radius); padding: 0.85rem 1rem;
+  display: none; gap: 0.6rem; align-items: flex-start;
+  font-size: 0.8rem; line-height: 1.4;
+}
+.alert-box.visible { display: flex; }
+.alert-error { background: var(--red-glow); border: 1px solid rgba(239,68,68,0.2); color: var(--red); }
+.alert-info { background: var(--accent-glow); border: 1px solid rgba(99,102,241,0.2); color: var(--accent); }
+.alert-icon { font-size: 1rem; flex-shrink: 0; margin-top: 0.05rem; }
+.alert-body { flex: 1; }
+.alert-title { font-weight: 600; margin-bottom: 0.2rem; }
+.alert-msg { word-break: break-word; }
+.alert-actions { margin-top: 0.5rem; display: flex; gap: 0.4rem; }
+
+/* Loading */
+.loading-overlay {
+  display: none; justify-content: center; align-items: center;
+  gap: 0.75rem; padding: 4rem; color: var(--text-muted); font-size: 0.82rem;
+}
+.loading-overlay.visible { display: flex; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 0.6s linear infinite;
+}
+.spinner-lg { width: 24px; height: 24px; border-width: 2.5px; }
+
+/* Result panel */
+.result-panel { display: none; }
+.result-panel.visible { display: block; }
+
+.result-card {
+  background: var(--bg-1); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden;
+}
+.result-top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.9rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+}
+.result-top-left { display: flex; align-items: center; gap: 0.75rem; }
+.result-top-right { display: flex; align-items: center; gap: 0.5rem; }
+.result-body { padding: 1.2rem; }
+
+/* Badges */
+.badge {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  font-size: 0.68rem; font-weight: 600; padding: 0.22rem 0.65rem;
+  border-radius: 999px; letter-spacing: 0.02em;
+}
+.badge-verified { background: var(--green-glow); color: var(--green); border: 1px solid rgba(34,197,94,0.18); }
+.badge-unverified { background: var(--red-glow); color: var(--red); border: 1px solid rgba(239,68,68,0.18); }
+.badge-info { background: var(--accent-glow); color: var(--accent); border: 1px solid rgba(99,102,241,0.18); }
+
+/* Detail grid */
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.875rem; }
+.detail-grid.full { grid-template-columns: 1fr; }
+.detail-grid.tri { grid-template-columns: 1fr 1fr 1fr; }
+.detail { min-width: 0; }
+.detail-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; margin-bottom: 0.25rem; }
+.detail-value {
+  font-family: var(--mono); font-size: 0.78rem; word-break: break-all;
+  display: flex; align-items: center; gap: 0.4rem; color: var(--text-primary);
+}
+.detail-value a { color: var(--accent); }
+.detail-value a:hover { text-decoration: underline; }
+
+/* Section header */
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 1.25rem 0 0.6rem;
+}
+.section-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; color: var(--text-muted); }
+.section-count { font-size: 0.68rem; color: var(--text-muted); font-family: var(--mono); }
+
+/* Copy button inline */
+.copy-inline {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: var(--radius-xs);
+  background: var(--bg-3); border: 1px solid var(--border);
+  cursor: pointer; color: var(--text-muted); font-size: 0.72rem;
+  transition: all var(--transition); flex-shrink: 0;
+}
+.copy-inline:hover { border-color: var(--accent); color: var(--accent); }
+.copy-inline.copied { border-color: var(--green); color: var(--green); }
+
+/* Chain tags */
+.chains-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.chain-tag {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  font-family: var(--mono); font-size: 0.68rem; padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-sm); font-weight: 500; transition: all var(--transition);
+  cursor: default;
+}
+.chain-logo { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:50%; overflow:hidden; flex-shrink:0; }
+.chain-logo svg { width:16px; height:16px; display:block; }
+.chain-tag-default { background: var(--accent-glow); color: var(--accent); border: 1px solid rgba(99,102,241,0.15); }
+.chain-tag-eth { background: rgba(98,126,234,0.10); color: #627eea; border: 1px solid rgba(98,126,234,0.15); }
+.chain-tag-op { background: rgba(255,4,32,0.08); color: #ff0420; border: 1px solid rgba(255,4,32,0.12); }
+.chain-tag-base { background: rgba(0,82,255,0.08); color: #0052ff; border: 1px solid rgba(0,82,255,0.12); }
+.chain-tag-arb { background: rgba(40,160,240,0.08); color: #28a0f0; border: 1px solid rgba(40,160,240,0.12); }
+.chain-tag-poly { background: rgba(130,71,229,0.08); color: #8247e5; border: 1px solid rgba(130,71,229,0.12); }
+.chain-tag-zk { background: rgba(8,60,234,0.08); color: #083cea; border: 1px solid rgba(8,60,234,0.12); }
+.chain-tag-scroll { background: rgba(255,168,0,0.08); color: #d4901e; border: 1px solid rgba(255,168,0,0.12); }
+.chain-tag-linea { background: rgba(97,97,97,0.08); color: #888; border: 1px solid rgba(97,97,97,0.12); }
+.chain-tag-local { background: rgba(34,197,94,0.08); color: var(--green); border: 1px solid rgba(34,197,94,0.12); }
+
+/* Live-confirmed chain row */
+.chain-row {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 0.4rem;
+  transition: all var(--transition);
+}
+.chain-row:hover { border-color: var(--border-strong); }
+.chain-row-left { display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 0; }
+.chain-row-addr { font-family: var(--mono); font-size: 0.7rem; color: var(--text-muted); word-break: break-all; }
+.chain-row-addr a { color: var(--accent); }
+.badge-live { background: rgba(34,197,94,0.1); color: var(--green); border: 1px solid rgba(34,197,94,0.2); font-size: 0.58rem; padding: 0.12rem 0.45rem; }
+.badge-registry { background: var(--accent-glow); color: var(--accent); border: 1px solid rgba(99,102,241,0.2); font-size: 0.58rem; padding: 0.12rem 0.45rem; }
+
+/* Proofs table */
+.proofs-table { width: 100%; border-collapse: collapse; }
+.proofs-table th {
+  text-align: left; font-size: 0.62rem; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600;
+  padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border);
+}
+.proofs-table td {
+  font-size: 0.78rem; padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+.proofs-table td:not(:first-child) { font-family: var(--mono); }
+.proofs-table tr:last-child td { border-bottom: none; }
+.proofs-table tr:hover td { background: var(--bg-2); }
+.proofs-table td a { color: var(--accent); }
+.proofs-table td a:hover { text-decoration: underline; }
+.proof-hash-link { font-family: var(--mono); font-size: 0.75rem; }
+
+/* View toggle */
+.view-toggle {
+  display: flex; gap: 0.25rem;
+  background: var(--bg-3); border-radius: var(--radius-sm);
+  padding: 0.2rem;
+}
+.view-toggle-btn {
+  font-size: 0.68rem; padding: 0.22rem 0.55rem;
+  border-radius: 4px; cursor: pointer;
+  background: none; border: none;
+  color: var(--text-muted); font-family: var(--sans);
+  transition: all var(--transition);
+}
+.view-toggle-btn.active { background: var(--bg-1); color: var(--text-primary); box-shadow: var(--shadow-sm); }
+
+/* JSON viewer */
+.json-viewer {
+  display: none; margin-top: 0.875rem;
+  background: var(--bg-0); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+}
+.json-viewer.visible { display: block; }
+.json-viewer pre {
+  padding: 1rem; overflow-x: auto; max-height: 520px; overflow-y: auto;
+  font-family: var(--mono); font-size: 0.73rem; line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+/* Source viewer */
+.source-viewer { margin-top: 1rem; }
+.source-toggle {
+  display: flex; align-items: center; gap: 0.5rem;
+  cursor: pointer; font-size: 0.78rem; font-weight: 500;
+  margin-bottom: 0.5rem; background: none; border: none;
+  color: var(--text-secondary); font-family: var(--sans);
+  transition: all var(--transition); padding: 0.35rem 0.6rem;
+  border-radius: var(--radius-sm);
+}
+.source-toggle:hover { background: var(--bg-3); color: var(--text-primary); }
+.source-arrow { transition: transform 0.2s; display: inline-block; font-size: 0.6rem; color: var(--text-muted); }
+.source-arrow.open { transform: rotate(90deg); }
+.source-files { display: none; }
+.source-files.visible { display: block; }
+.source-file {
+  background: var(--bg-0); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 0.75rem; overflow: hidden;
+}
+.source-file-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.45rem 0.75rem;
+  background: var(--bg-2); border-bottom: 1px solid var(--border);
+}
+.source-file-path { font-family: var(--mono); font-size: 0.7rem; color: var(--accent); }
+.source-file-meta { display: flex; gap: 0.5rem; align-items: center; }
+.source-file-size { font-family: var(--mono); font-size: 0.6rem; color: var(--text-muted); }
+.copy-btn {
+  background: var(--bg-3); border: 1px solid var(--border);
+  color: var(--text-muted); font-size: 0.62rem; padding: 0.18rem 0.5rem;
+  border-radius: 4px; cursor: pointer; font-family: var(--mono);
+  transition: all var(--transition);
+}
+.copy-btn:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.copy-btn.copied { color: var(--green); border-color: var(--green); }
+.source-file pre { margin: 0; padding: 0; overflow-x: auto; max-height: 420px; overflow-y: auto; }
+.source-file code {
+  font-family: var(--mono); font-size: 0.72rem; color: var(--text-secondary);
+  line-height: 1.6; white-space: pre; display: block;
+}
+.source-line { display: flex; }
+.source-line:hover { background: var(--accent-glow); }
+.line-num {
+  display: inline-block; min-width: 2.8rem; padding: 0 0.5rem;
+  text-align: right; color: var(--text-muted); user-select: none;
+  flex-shrink: 0; border-right: 1px solid var(--border); margin-right: 0.75rem;
+  font-size: 0.67rem;
+}
+.line-content { flex: 1; padding-right: 0.75rem; }
+
+/* Deployment timeline */
+.timeline { margin-top: 0.5rem; }
+.timeline-item {
+  display: flex; align-items: flex-start; gap: 0.875rem;
+  padding: 0.65rem 0; border-bottom: 1px solid var(--border-subtle);
+}
+.timeline-item:last-child { border-bottom: none; }
+.timeline-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 0.35rem;
+  background: var(--accent); box-shadow: 0 0 8px var(--accent-glow);
+}
+.timeline-content { flex: 1; min-width: 0; }
+.timeline-chain { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.15rem; display: flex; align-items: center; gap: 0.4rem; }
+.timeline-addr { font-family: var(--mono); font-size: 0.72rem; word-break: break-all; }
+.timeline-addr a { color: var(--accent); }
+.timeline-addr a:hover { text-decoration: underline; }
+.timeline-meta { font-family: var(--mono); font-size: 0.65rem; color: var(--text-muted); margin-top: 0.1rem; }
+.timeline-meta a { color: var(--text-muted); }
+.timeline-meta a:hover { color: var(--accent); text-decoration: underline; }
+
+/* ===================================================================
+   Activity Tab
+   =================================================================== */
+.activity-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.activity-header-left { display: flex; align-items: center; gap: 0.75rem; }
+.activity-header-title { font-size: 0.9rem; font-weight: 600; }
+
+.sse-status {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.68rem; color: var(--text-muted);
+}
+.sse-status .conn-dot { width: 5px; height: 5px; }
+
+/* Filter pills */
+.filter-pills { display: flex; gap: 0.3rem; }
+.filter-pill {
+  padding: 0.25rem 0.65rem; border-radius: 999px;
+  font-size: 0.7rem; font-weight: 500; cursor: pointer;
+  background: var(--bg-2); border: 1px solid var(--border);
+  color: var(--text-muted); transition: all var(--transition);
+}
+.filter-pill.active { background: var(--accent-glow); border-color: rgba(99,102,241,0.3); color: var(--accent); }
+.filter-pill:hover:not(.active) { color: var(--text-secondary); border-color: var(--border-strong); }
+
+.activity-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.activity-empty {
+  text-align: center; padding: 4rem 1rem; color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.activity-empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; opacity: 0.4; }
+.activity-empty-text { font-size: 0.82rem; }
+
+.activity-item {
+  display: flex; align-items: flex-start; gap: 0.875rem;
+  padding: 0.9rem 1.1rem;
+  background: var(--bg-1); border: 1px solid var(--border);
+  border-radius: var(--radius); transition: all var(--transition);
+  animation: slideDown 0.25s ease-out;
+  cursor: pointer;
+}
+@keyframes slideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+.activity-item:hover { border-color: var(--border-strong); background: var(--bg-2); }
+.activity-icon {
+  width: 32px; height: 32px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.9rem; flex-shrink: 0;
+}
+.activity-icon.proof { background: var(--accent-glow); }
+.activity-icon.deploy { background: var(--green-glow); }
+.activity-body { flex: 1; min-width: 0; }
+.activity-title { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.15rem; display: flex; align-items: center; gap: 0.4rem; }
+.activity-desc { font-size: 0.7rem; color: var(--text-secondary); font-family: var(--mono); word-break: break-all; }
+.activity-time { font-size: 0.62rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+/* ===================================================================
+   Command Palette
+   =================================================================== */
+.palette-overlay {
+  display: none; position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(6px);
+  align-items: flex-start; justify-content: center;
+  padding-top: 12vh;
+}
+.palette-overlay.visible { display: flex; }
+.palette {
+  width: 580px; max-width: 92vw;
+  background: var(--bg-1); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl); overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  animation: paletteIn 0.14s ease-out;
+}
+@keyframes paletteIn { from { opacity: 0; transform: scale(0.97) translateY(-10px); } }
+.palette-header {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.85rem 1.1rem; border-bottom: 1px solid var(--border);
+}
+.palette-search-icon { color: var(--text-muted); font-size: 1rem; flex-shrink: 0; }
+.palette-input {
+  flex: 1; background: transparent; border: none;
+  color: var(--text-primary); font-size: 0.95rem; font-family: var(--mono);
+  outline: none;
+}
+.palette-input::placeholder { color: var(--text-muted); }
+.palette-esc {
+  font-size: 0.62rem; color: var(--text-muted);
+  background: var(--bg-3); border: 1px solid var(--border);
+  padding: 0.15rem 0.4rem; border-radius: 4px; flex-shrink: 0;
+}
+.palette-results { max-height: 320px; overflow-y: auto; padding: 0.4rem; }
+.palette-section-label {
+  font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.07em;
+  font-weight: 600; color: var(--text-muted); padding: 0.5rem 0.75rem 0.25rem;
+}
+.palette-item {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.6rem 0.75rem; border-radius: var(--radius-sm);
+  cursor: pointer; transition: background var(--transition);
+}
+.palette-item:hover, .palette-item.selected { background: var(--accent-glow); }
+.palette-item-icon { font-size: 0.85rem; color: var(--text-muted); width: 20px; text-align: center; flex-shrink: 0; }
+.palette-item-text { font-size: 0.83rem; flex: 1; }
+.palette-item-hint { font-size: 0.68rem; color: var(--text-muted); font-family: var(--mono); }
+.palette-footer {
+  display: flex; align-items: center; gap: 0.75rem; justify-content: flex-end;
+  padding: 0.5rem 1rem; border-top: 1px solid var(--border);
+  font-size: 0.62rem; color: var(--text-muted);
+}
+.palette-key {
+  background: var(--bg-3); border: 1px solid var(--border);
+  padding: 0.1rem 0.35rem; border-radius: 3px; font-family: var(--mono);
+}
+.palette-key-hint { display: flex; align-items: center; gap: 0.3rem; }
+
+/* ===================================================================
+   Toast Notifications
+   =================================================================== */
+.toast-container {
+  position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999;
+  display: flex; flex-direction: column; gap: 0.45rem;
+  pointer-events: none;
+}
+.toast {
+  display: flex; align-items: flex-start; gap: 0.6rem;
+  padding: 0.75rem 1rem; border-radius: var(--radius);
+  background: var(--bg-2); border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg);
+  font-size: 0.78rem; color: var(--text-primary);
+  pointer-events: auto;
+  animation: toastIn 0.25s ease-out;
+  max-width: 360px;
+}
+@keyframes toastIn { from { opacity: 0; transform: translateY(12px) scale(0.95); } }
+.toast.leaving { animation: toastOut 0.18s ease-in forwards; }
+@keyframes toastOut { to { opacity: 0; transform: translateY(-8px) scale(0.96); } }
+.toast-icon { font-size: 1rem; flex-shrink: 0; margin-top: 0.05rem; }
+.toast-body { flex: 1; min-width: 0; }
+.toast-title { font-weight: 600; font-size: 0.77rem; }
+.toast-desc { font-size: 0.68rem; color: var(--text-secondary); word-break: break-all; margin-top: 0.1rem; }
+
+/* ===================================================================
+   Empty States
+   =================================================================== */
+.empty-state {
+  text-align: center; padding: 4rem 1rem;
+  color: var(--text-muted); font-size: 0.85rem;
+}
+.empty-state-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.35; }
+.empty-state-title { font-size: 0.95rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.4rem; }
+.empty-state-desc { font-size: 0.8rem; line-height: 1.5; max-width: 320px; margin: 0 auto; }
+
+/* ===================================================================
+   Responsive
+   =================================================================== */
+@media (max-width: 768px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .config-bar { flex-wrap: wrap; }
+  .search-bar { flex-wrap: wrap; padding: 0.35rem; }
+  .search-type-pills { flex-wrap: wrap; }
+  .search-extras { flex-direction: column; }
+  .detail-grid { grid-template-columns: 1fr; }
+  .detail-grid.tri { grid-template-columns: 1fr 1fr; }
+  .header { padding: 0 1rem; }
+  .main { padding: 1rem; }
+  .tabs { padding: 0 1rem; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .palette { width: 95vw; }
+  .kbd-hint { display: none; }
+  .logo-name span { display: none; }
+}
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .detail-grid.tri { grid-template-columns: 1fr; }
+  .header-right .icon-btn:not(:last-child) { display: none; }
+}
 </style>
 </head>
 <body>
-<div class="container">
-  <h1>cross-l2-verify <span id="connStatus" class="conn-status"></span></h1>
-  <p class="subtitle">Verification status dashboard</p>
 
-  <div class="config">
-    <input id="resolverUrl" type="text" placeholder="Resolver URL (e.g. http://localhost:3000)" value="http://localhost:3000">
-    <button id="connectBtn" onclick="connect()">Connect</button>
-  </div>
+<div class="app">
 
-  <div class="refresh-bar">
-    <span id="refreshInfo" class="refresh-info"></span>
-    <div class="refresh-toggle">
-      <input type="checkbox" id="autoRefresh" checked>
-      <label for="autoRefresh">Auto-refresh (30s)</label>
+  <!-- ===================== Header ===================== -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo">
+        <div class="logo-mark">L2</div>
+        <span class="logo-name">cross-l2-verify<span> &mdash; contract registry</span></span>
+      </div>
+      <span id="connPill" class="conn-pill">
+        <span class="conn-dot idle"></span>
+        <span>Not connected</span>
+      </span>
     </div>
-  </div>
+    <div class="header-right">
+      <div class="kbd-hint" onclick="openPalette()" title="Quick search (⌘K)">
+        <kbd>&#8984;K</kbd> Quick Search
+      </div>
+      <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+        <span id="themeIcon">&#9790;</span>
+      </button>
+    </div>
+  </header>
 
-  <div class="stats">
-    <div class="stat">
-      <div class="stat-label">Proofs</div>
-      <div class="stat-value" id="proofCount">&mdash;</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Deployments</div>
-      <div class="stat-value" id="deploymentCount">&mdash;</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Chains</div>
-      <div class="stat-value" id="chainCount">&mdash;</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Last Block</div>
-      <div class="stat-value" id="lastBlock">&mdash;</div>
-    </div>
-  </div>
+  <!-- ===================== Tabs ===================== -->
+  <nav class="tabs">
+    <button class="tab active" data-tab="overview" onclick="switchTab('overview')">
+      <span class="tab-icon">&#9685;</span> Overview
+    </button>
+    <button class="tab" data-tab="search" onclick="switchTab('search')">
+      <span class="tab-icon">&#9906;</span> Search
+    </button>
+    <button class="tab" data-tab="activity" onclick="switchTab('activity')">
+      <span class="tab-icon">&#9889;</span> Activity
+      <span id="activityBadge" class="tab-badge" style="display:none">0</span>
+    </button>
+  </nav>
 
-  <div class="search">
-    <div class="search-row">
-      <select id="searchType">
-        <option value="codeHash">Code Hash</option>
-        <option value="address">Address</option>
-        <option value="proof">Proof Hash</option>
-      </select>
-      <input id="searchInput" type="text" placeholder="0x...">
-      <input id="chainIdInput" type="text" placeholder="Chain ID" style="max-width:100px;display:none">
-      <input id="rpcInput" type="text" placeholder="RPC URL (optional)" style="max-width:200px;display:none">
-      <button id="searchBtn" onclick="search()">Lookup</button>
-    </div>
-    <div id="searchError" class="error-box">
-      <span class="error-box-icon">&#x26A0;</span>
-      <span id="searchErrorMsg" class="error-box-msg"></span>
-    </div>
-  </div>
+  <!-- ===================== Main ===================== -->
+  <main class="main">
 
-  <div id="loadingOverlay" class="loading-overlay">
-    <span class="spinner spinner-lg"></span>
-    <span id="loadingText">Looking up...</span>
-  </div>
+    <!-- ========== Overview Tab ========== -->
+    <div id="panel-overview" class="tab-panel active">
 
-  <div id="result" class="result">
-    <div class="result-header">
-      <span class="detail-label">Verification Status</span>
-      <span id="statusBadge" class="badge"></span>
+      <div class="config-bar">
+        <input id="resolverUrl" class="input" type="text" placeholder="Resolver URL  (e.g. http://localhost:3000)" value="http://localhost:3000" spellcheck="false" style="font-size:0.83rem;">
+        <button id="connectBtn" class="btn btn-primary" onclick="connect()">Connect</button>
+        <button class="btn btn-ghost" onclick="manualRefresh()" title="Refresh stats" id="refreshBtn" style="display:none">&#8635;</button>
+      </div>
+
+      <div class="refresh-bar">
+        <div class="refresh-left">
+          <span id="refreshInfo" class="refresh-info"></span>
+        </div>
+        <div class="refresh-right">
+          <div class="toggle-group">
+            <label class="toggle-switch" for="autoRefresh">
+              <input type="checkbox" id="autoRefresh" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <label for="autoRefresh">Auto-refresh</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-card-glow"></div>
+          <div class="stat-top">
+            <div class="stat-label">Proofs</div>
+            <div class="stat-icon">&#10003;</div>
+          </div>
+          <div class="stat-value" id="proofCount">&mdash;</div>
+          <div class="stat-sub" id="proofSub">&nbsp;</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-glow"></div>
+          <div class="stat-top">
+            <div class="stat-label">Deployments</div>
+            <div class="stat-icon">&#9881;</div>
+          </div>
+          <div class="stat-value" id="deploymentCount">&mdash;</div>
+          <div class="stat-sub" id="deploySub">&nbsp;</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-glow"></div>
+          <div class="stat-top">
+            <div class="stat-label">Chains</div>
+            <div class="stat-icon">&#9842;</div>
+          </div>
+          <div class="stat-value" id="chainCount">&mdash;</div>
+          <div class="stat-sub" id="chainSub">&nbsp;</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-glow"></div>
+          <div class="stat-top">
+            <div class="stat-label">Last Block</div>
+            <div class="stat-icon">&#9638;</div>
+          </div>
+          <div class="stat-value" id="lastBlock">&mdash;</div>
+          <div class="stat-sub" id="blockSub">&nbsp;</div>
+        </div>
+      </div>
+
+      <!-- Sync progress bar -->
+      <div class="sync-bar-wrap" id="syncBarWrap">
+        <div class="sync-bar-header">
+          <span class="sync-bar-label" id="syncBarLabel">Indexer syncing&hellip;</span>
+          <span class="sync-bar-pct" id="syncBarPct">0%</span>
+        </div>
+        <div class="sync-bar-track">
+          <div class="sync-bar-fill" id="syncBarFill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <!-- Empty/disconnected state -->
+      <div id="overviewEmpty" class="empty-state" style="display:none">
+        <div class="empty-state-icon">&#9730;</div>
+        <div class="empty-state-title">Not connected</div>
+        <div class="empty-state-desc">Enter a resolver API URL above and click Connect to load indexer stats and live events.</div>
+      </div>
     </div>
-    <div id="resultBody"></div>
+
+    <!-- ========== Search Tab ========== -->
+    <div id="panel-search" class="tab-panel">
+
+      <div class="search-section">
+        <!-- Search bar -->
+        <div class="search-bar">
+          <div class="search-type-pills">
+            <button class="type-pill active" data-type="codeHash" onclick="setSearchType('codeHash', this)">Code Hash</button>
+            <button class="type-pill" data-type="address" onclick="setSearchType('address', this)">Address</button>
+            <button class="type-pill" data-type="proof" onclick="setSearchType('proof', this)">Proof Hash</button>
+          </div>
+          <div class="search-divider"></div>
+          <input id="searchInput" class="search-input" type="text" placeholder="0x..." spellcheck="false">
+          <div class="search-btn-wrap">
+            <span id="autoDetectBadge" class="auto-detect-badge">auto</span>
+            <button id="searchBtn" class="btn btn-primary btn-sm" onclick="doSearch()">Lookup</button>
+          </div>
+        </div>
+
+        <!-- Address extras -->
+        <div id="searchExtras" class="search-extras" style="display:none">
+          <input id="chainIdInput" class="input" type="text" placeholder="Chain ID" style="max-width:130px" spellcheck="false">
+          <input id="rpcInput" class="input" type="text" placeholder="RPC URL (optional)" style="flex:1" spellcheck="false">
+        </div>
+
+        <!-- Search history -->
+        <div id="searchHistoryWrap" class="search-history-wrap">
+          <div class="history-header">
+            <span class="history-title">Recent</span>
+            <button class="history-clear" onclick="clearHistory()">Clear all</button>
+          </div>
+          <div id="searchHistory" class="search-history"></div>
+        </div>
+
+        <!-- Error box -->
+        <div id="searchError" class="alert-box alert-error">
+          <span class="alert-icon">&#9888;</span>
+          <div class="alert-body">
+            <div id="searchErrorMsg" class="alert-msg"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div id="loadingOverlay" class="loading-overlay">
+        <span class="spinner spinner-lg"></span>
+        <span id="loadingText">Looking up&hellip;</span>
+      </div>
+
+      <!-- Result -->
+      <div id="resultPanel" class="result-panel"></div>
+
+      <!-- Empty state (before any search) -->
+      <div id="searchEmpty" class="empty-state">
+        <div class="empty-state-icon">&#128269;</div>
+        <div class="empty-state-title">Lookup a contract</div>
+        <div class="empty-state-desc">Search by code hash, deployment address, or proof hash to find cross-chain verification records.</div>
+      </div>
+    </div>
+
+    <!-- ========== Activity Tab ========== -->
+    <div id="panel-activity" class="tab-panel">
+      <div class="activity-header">
+        <div class="activity-header-left">
+          <div class="activity-header-title">Live Activity</div>
+          <span id="sseStatus" class="sse-status">
+            <span class="conn-dot idle"></span> Waiting for connection
+          </span>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.75rem">
+          <div class="filter-pills">
+            <button class="filter-pill active" data-filter="all" onclick="setActivityFilter('all', this)">All</button>
+            <button class="filter-pill" data-filter="proof" onclick="setActivityFilter('proof', this)">Proofs</button>
+            <button class="filter-pill" data-filter="deployment" onclick="setActivityFilter('deployment', this)">Deployments</button>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="clearActivity()" id="clearActivityBtn" style="display:none">Clear</button>
+        </div>
+      </div>
+
+      <div id="activityList" class="activity-list">
+        <div class="activity-empty">
+          <div class="activity-empty-icon">&#9889;</div>
+          <div class="activity-empty-text">Connect to a resolver to see live events</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Command Palette -->
+<div id="paletteOverlay" class="palette-overlay" onclick="if(event.target===this)closePalette()">
+  <div class="palette">
+    <div class="palette-header">
+      <span class="palette-search-icon">&#128269;</span>
+      <input id="paletteInput" class="palette-input" type="text" placeholder="Search by code hash, address, or proof hash&hellip;" spellcheck="false">
+      <span class="palette-esc">Esc</span>
+    </div>
+    <div id="paletteResults" class="palette-results"></div>
+    <div class="palette-footer">
+      <span class="palette-key-hint"><span class="palette-key">&#8593;&#8595;</span> Navigate</span>
+      <span class="palette-key-hint"><span class="palette-key">&#9166;</span> Select</span>
+      <span class="palette-key-hint"><span class="palette-key">Esc</span> Close</span>
+    </div>
   </div>
 </div>
 
+<!-- Toast container -->
+<div id="toastContainer" class="toast-container"></div>
+
 <script>
-// ---------------------------------------------------------------------------
-// Inline ResolverClient (from @cross-l2-verify/explorer-client)
-// Zero-dependency client for the resolver API
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// Inline ResolverClient
+// ===========================================================================
 class ResolverClient {
-  constructor(options) {
-    this._baseUrl = options.baseUrl.replace(/\/$/, '');
-    this._fetch = options.fetchFn || globalThis.fetch.bind(globalThis);
-  }
-
-  async health() { return this._get('/health'); }
-  async lookupByCodeHash(codeHash) { return this._get('/codehash/' + codeHash); }
-  async lookupByAddress(chainId, address, rpc) {
-    var query = rpc ? '?rpc=' + encodeURIComponent(rpc) : '';
-    return this._get('/chains/' + chainId + '/addresses/' + address + query);
-  }
-  async getProof(proofHash) { return this._get('/proofs/' + proofHash); }
-  async getDeployments(codeHash, chainId) {
-    var query = chainId ? '?chainId=' + chainId : '';
-    return this._get('/codehash/' + codeHash + '/deployments' + query);
-  }
-  async getChains(codeHash) { return this._get('/codehash/' + codeHash + '/chains'); }
-  async indexerStatus() { return this._get('/indexer/status'); }
-  async isVerified(chainId, address, rpc) {
-    try {
-      var result = await this.lookupByAddress(chainId, address, rpc);
-      return result.proofs.length > 0;
-    } catch (e) { return false; }
-  }
-
-  async _get(path) {
-    var response = await this._fetch(this._baseUrl + path);
-    if (!response.ok) {
-      var body = '';
-      try { body = await response.text(); } catch (e) {}
-      var err = new Error('Resolver returned ' + response.status + ' for ' + path + ': ' + body);
-      err.status = response.status;
-      err.path = path;
-      throw err;
+  constructor(opts) { this._base = opts.baseUrl.replace(/\/$/, ''); }
+  async _get(p) {
+    var r = await fetch(this._base + p, { signal: AbortSignal.timeout(10000) });
+    if (!r.ok) {
+      var b = ''; try { b = await r.text(); } catch(e) {}
+      var err = new Error('HTTP ' + r.status + (b ? ': ' + b.slice(0,120) : ''));
+      err.status = r.status; throw err;
     }
-    return response.json();
+    return r.json();
   }
+  health() { return this._get('/health'); }
+  lookupByCodeHash(h) { return this._get('/codehash/' + h); }
+  lookupByAddress(c, a, rpc) { var q = rpc ? '?rpc=' + encodeURIComponent(rpc) : ''; return this._get('/chains/' + c + '/addresses/' + a + q); }
+  getProof(h) { return this._get('/proofs/' + h); }
+  getDeployments(h, c) { var q = c ? '?chainId=' + c : ''; return this._get('/codehash/' + h + '/deployments' + q); }
+  getChains(h) { return this._get('/codehash/' + h + '/chains'); }
+  indexerStatus() { return this._get('/indexer/status'); }
 }
 
-// ---------------------------------------------------------------------------
-// App state
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// State
+// ===========================================================================
 var $ = function(id) { return document.getElementById(id); };
 var client = null;
+var resolverBase = '';
 var refreshTimer = null;
+var eventSource = null;
+var activityEvents = [];
+var activityCount = 0;
+var activityFilter = 'all';
+var searchHistoryData = [];
+var lastRawResult = null;
+var currentSearchType = 'codeHash';
+var paletteSelectedIdx = -1;
 var ipfsGateway = 'https://gateway.pinata.cloud/ipfs/';
 
 var CHAIN_NAMES = {
-  1: 'Ethereum', 10: 'Optimism', 8453: 'Base', 42161: 'Arbitrum', 137: 'Polygon',
-  11155111: 'Sepolia', 11155420: 'OP Sepolia', 84532: 'Base Sepolia', 421614: 'Arb Sepolia'
+  1:'Ethereum', 10:'Optimism', 8453:'Base', 42161:'Arbitrum One',
+  137:'Polygon', 324:'zkSync Era', 59144:'Linea', 534352:'Scroll',
+  11155111:'Sepolia', 11155420:'OP Sepolia', 84532:'Base Sepolia',
+  421614:'Arb Sepolia', 31337:'Local Anvil'
 };
-
 var CHAIN_EXPLORERS = {
-  1: 'https://etherscan.io', 10: 'https://optimistic.etherscan.io',
-  8453: 'https://basescan.org', 42161: 'https://arbiscan.io', 137: 'https://polygonscan.com',
-  11155111: 'https://sepolia.etherscan.io', 11155420: 'https://sepolia-optimism.etherscan.io',
-  84532: 'https://sepolia.basescan.org', 421614: 'https://sepolia.arbiscan.io'
+  1:'https://etherscan.io', 10:'https://optimistic.etherscan.io',
+  8453:'https://basescan.org', 42161:'https://arbiscan.io',
+  137:'https://polygonscan.com', 11155111:'https://sepolia.etherscan.io',
+  11155420:'https://sepolia-optimism.etherscan.io', 84532:'https://sepolia.basescan.org',
+  421614:'https://sepolia.arbiscan.io'
+};
+var CHAIN_COLORS = {
+  1:'eth', 10:'op', 8453:'base', 42161:'arb', 137:'poly',
+  324:'zk', 59144:'linea', 534352:'scroll',
+  11155111:'eth', 11155420:'op', 84532:'base', 421614:'arb', 31337:'local'
+};
+// Inline SVG logos per chain (16×16, brand colours)
+var _svgEth = '<svg width="16" height="16" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 3L6 17l10 5.8L26 17z" fill="#627EEA" opacity=".8"/><path d="M6 17l10 5.8V30z" fill="#627EEA"/><path d="M26 17L16 22.8V30z" fill="#627EEA" opacity=".6"/><path d="M6 19.2l10-5.8 10 5.8-10 6z" fill="#627EEA" opacity=".25"/></svg>';
+var _svgOp  = '<svg width="16" height="16" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="#FF0420"/><text x="16" y="21" text-anchor="middle" fill="#fff" font-size="11" font-weight="700" font-family="Arial,sans-serif">OP</text></svg>';
+var _svgBase = '<svg width="16" height="16" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="#0052FF"/><path d="M16.1 6C10.5 6 6 10.5 6 16.1s4.5 10.1 10.1 10.1c5.3 0 9.6-4 10-9.2H16.1v-2.4h12.8C28.1 9.7 22.5 6 16.1 6z" fill="#fff"/></svg>';
+var _svgArb  = '<svg width="16" height="16" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="#1B2134"/><path d="M19.3 22.5l-1.6-4.3H14l-1.6 4.3H9.8l5.8-14.5h2.8l5.8 14.5h-2.9zm-5.1-7h3.6L16 11.2l-1.8 4.3z" fill="#28A0F0"/></svg>';
+var _svgPoly = '<svg width="16" height="16" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="#8247E5"/><path d="M21.3 13.3c-.4-.2-.9-.2-1.3 0l-2.9 1.7-2 1.1-2.9 1.7c-.4.2-.9.2-1.3 0l-2.3-1.3c-.4-.2-.7-.6-.7-1.1v-2.5c0-.4.2-.9.7-1.1l2.3-1.3c.4-.2.9-.2 1.3 0l2.3 1.3c.4.2.7.6.7 1.1v1.7l2-1.1v-1.8c0-.4-.2-.9-.7-1.1l-4.2-2.4c-.4-.2-.9-.2-1.3 0l-4.3 2.5c-.4.2-.7.6-.7 1.1v5c0 .4.2.9.7 1.1l4.3 2.5c.4.2.9.2 1.3 0l2.9-1.7 2-1.1 2.9-1.7c.4-.2.9-.2 1.3 0l2.3 1.3c.4.2.7.6.7 1.1v2.5c0 .4-.2.9-.7 1.1l-2.3 1.3c-.4.2-.9.2-1.3 0l-2.3-1.3c-.4-.2-.7-.6-.7-1.1v-1.7l-2 1.1v1.8c0 .4.2.9.7 1.1l4.3 2.5c.4.2.9.2 1.3 0l4.3-2.5c.4.2-.7.6-.7 1.1v-5c0-.4-.2-.9-.7-1.1l-4.3-2.4z" fill="#fff"/></svg>';
+var _svgZk   = '<svg width="16" height="16" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="#1755F4"/><polygon points="8,10 24,10 16,16" fill="#fff" opacity=".9"/><polygon points="8,22 24,22 16,16" fill="#fff" opacity=".6"/></svg>';
+var _svgScr  = '<svg width="16" height="16" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="#FFDBB3"/><text x="16" y="20.5" text-anchor="middle" fill="#5B3000" font-size="9" font-weight="700" font-family="Arial,sans-serif">SCR</text></svg>';
+var _svgLinea= '<svg width="16" height="16" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="#121212"/><line x1="9" y1="11" x2="9" y2="21" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><line x1="9" y1="21" x2="23" y2="21" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>';
+var _svgLocal= '<svg width="16" height="16" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="#16a34a"/><text x="16" y="20.5" text-anchor="middle" fill="#fff" font-size="9" font-weight="700" font-family="Arial,sans-serif">DEV</text></svg>';
+
+var CHAIN_LOGOS = {
+  1:_svgEth, 10:_svgOp, 8453:_svgBase, 42161:_svgArb, 137:_svgPoly,
+  324:_svgZk, 59144:_svgLinea, 534352:_svgScr,
+  11155111:_svgEth, 11155420:_svgOp, 84532:_svgBase, 421614:_svgArb, 31337:_svgLocal
 };
 
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// Theme
+// ===========================================================================
+function initTheme() {
+  var t = localStorage.getItem('cv-theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  $('themeIcon').textContent = t === 'dark' ? '\u263E' : '\u2600';
+}
+function toggleTheme() {
+  var cur = document.documentElement.getAttribute('data-theme');
+  var next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('cv-theme', next);
+  $('themeIcon').textContent = next === 'dark' ? '\u263E' : '\u2600';
+}
+initTheme();
+
+// ===========================================================================
 // Helpers
-// ---------------------------------------------------------------------------
-function chainName(id) { return CHAIN_NAMES[id] || ('Chain ' + id); }
-function explorerUrl(chainId) { return CHAIN_EXPLORERS[chainId] || null; }
+// ===========================================================================
+function chainName(id) { return CHAIN_NAMES[id] || 'Chain ' + id; }
+function chainColorClass(id) { var c = CHAIN_COLORS[id]; return c ? 'chain-tag-' + c : 'chain-tag-default'; }
+function chainLogo(id) { return CHAIN_LOGOS[id] ? '<span class="chain-logo">' + CHAIN_LOGOS[id] + '</span>' : ''; }
+function explorerUrl(id) { return CHAIN_EXPLORERS[id] || null; }
+function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function truncate(s, n) { n = n || 22; if (!s || s.length <= n) return s || '\u2014'; return s.slice(0, 10) + '\u2026' + s.slice(-8); }
+function formatBytes(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b/1024).toFixed(1) + ' KB'; return (b/1048576).toFixed(1) + ' MB'; }
 
-function addressLink(address, chainId) {
-  var base = explorerUrl(chainId);
-  if (!base) return '<span>' + esc(address) + '</span>';
-  return '<a href="' + base + '/address/' + esc(address) + '" target="_blank" rel="noopener">' + esc(address) + '</a>';
-}
-
-function txLink(txHash, chainId) {
-  var base = explorerUrl(chainId);
-  if (!base) return esc(truncate(txHash));
-  return '<a href="' + base + '/tx/' + esc(txHash) + '" target="_blank" rel="noopener">' + esc(truncate(txHash)) + '</a>';
-}
-
-function ipfsLink(cid) {
-  if (!cid) return '&mdash;';
-  return '<a href="' + ipfsGateway + esc(cid) + '" target="_blank" rel="noopener">' + esc(truncate(cid)) + '</a>';
-}
-
-function ipfsLinkFull(cid) {
-  if (!cid) return '&mdash;';
-  return '<a href="' + ipfsGateway + esc(cid) + '" target="_blank" rel="noopener">' + esc(cid) + '</a>';
+function relativeTime(ts) {
+  if (!ts) return '';
+  var ms = (typeof ts === 'string' && ts.length <= 13 && !ts.includes('-')) ? parseInt(ts) * 1000 : new Date(ts).getTime();
+  if (isNaN(ms)) return '';
+  var sec = Math.floor((Date.now() - ms) / 1000);
+  if (sec < 5) return 'just now';
+  if (sec < 60) return sec + 's ago';
+  if (sec < 3600) return Math.floor(sec/60) + 'm ago';
+  if (sec < 86400) return Math.floor(sec/3600) + 'h ago';
+  return Math.floor(sec/86400) + 'd ago';
 }
 
-function esc(s) {
-  if (!s) return '';
-  var d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
+function formatTs(ts) {
+  if (!ts) return '\u2014';
+  var ms = (typeof ts === 'string' && ts.length <= 13 && !ts.includes('-')) ? parseInt(ts) * 1000 : new Date(ts).getTime();
+  if (isNaN(ms)) return ts;
+  var d = new Date(ms);
+  return d.toLocaleString() + ' (' + relativeTime(ts) + ')';
 }
 
-function truncate(s) {
-  if (!s || s.length < 20) return s || '\u2014';
-  return s.slice(0, 10) + '\u2026' + s.slice(-8);
+function addressLink(addr, cid) {
+  var base = explorerUrl(cid);
+  if (!base) return '<span class="detail-value">' + esc(addr) + '</span>';
+  return '<a href="' + base + '/address/' + esc(addr) + '" target="_blank" rel="noopener">' + esc(addr) + '</a>';
+}
+function txLink(hash, cid) {
+  var base = explorerUrl(cid);
+  if (!base) return esc(truncate(hash));
+  return '<a href="' + base + '/tx/' + esc(hash) + '" target="_blank" rel="noopener">' + esc(truncate(hash)) + '</a>';
+}
+function ipfsLink(cid) { return cid ? '<a href="' + ipfsGateway + esc(cid) + '" target="_blank" rel="noopener">' + esc(truncate(cid, 18)) + '</a>' : '\u2014'; }
+function ipfsLinkFull(cid) { return cid ? '<a href="' + ipfsGateway + esc(cid) + '" target="_blank" rel="noopener">' + esc(cid) + '</a>' : '\u2014'; }
+
+function copyable(text) {
+  if (!text) return '<span class="detail-value">\u2014</span>';
+  return '<span class="detail-value">' + esc(text) +
+    ' <button class="copy-inline" onclick="copyText(\'' + esc(text).replace(/'/g,'\\\'') + '\', this)" title="Copy">\u2398</button></span>';
 }
 
-function formatBytes(bytes) {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+// ===========================================================================
+// Toast notifications
+// ===========================================================================
+function toast(title, desc, icon, type) {
+  var el = document.createElement('div');
+  el.className = 'toast' + (type ? ' toast-' + type : '');
+  el.innerHTML = '<span class="toast-icon">' + (icon || '\u2139') + '</span>' +
+    '<div class="toast-body"><div class="toast-title">' + esc(title) + '</div>' +
+    (desc ? '<div class="toast-desc">' + esc(desc) + '</div>' : '') + '</div>';
+  $('toastContainer').appendChild(el);
+  setTimeout(function() { el.classList.add('leaving'); setTimeout(function() { el.remove(); }, 200); }, 4000);
 }
 
-function showError(msg) {
-  $('searchErrorMsg').textContent = msg;
-  $('searchError').classList.add('visible');
+// ===========================================================================
+// Clipboard
+// ===========================================================================
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(function() {
+    if (btn) { btn.classList.add('copied'); btn.innerHTML = '&#10003;'; setTimeout(function() { btn.classList.remove('copied'); btn.innerHTML = '\u2398'; }, 1500); }
+    toast('Copied', truncate(text, 36), '\u2705');
+  }).catch(function() {});
 }
-function hideError() {
-  $('searchErrorMsg').textContent = '';
-  $('searchError').classList.remove('visible');
-}
-function showLoading(text) {
-  $('loadingText').textContent = text || 'Looking up...';
-  $('loadingOverlay').classList.add('visible');
-  $('result').classList.remove('visible');
-}
-function hideLoading() { $('loadingOverlay').classList.remove('visible'); }
 
-function setButtonLoading(btn, loading) {
-  if (loading) {
-    btn.disabled = true;
-    btn._origText = btn.textContent;
-    btn.innerHTML = '<span class="spinner"></span> ' + btn._origText;
-  } else {
-    btn.disabled = false;
-    btn.textContent = btn._origText || btn.textContent;
-  }
+function copySourceCode(id, btn) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(function() {
+    btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  }).catch(function() {});
+}
+
+function downloadResult() {
+  if (!lastRawResult) return;
+  var clean = Object.assign({}, lastRawResult);
+  delete clean._deployments;
+  var json = JSON.stringify(clean, function(k, v) { return typeof v === 'bigint' ? v.toString() : v; }, 2);
+  var blob = new Blob([json], {type: 'application/json'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'cv-result-' + Date.now() + '.json'; a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Downloaded', 'Result saved as JSON', '\u2B73');
+}
+
+// ===========================================================================
+// Tabs
+// ===========================================================================
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.toggle('active', t.dataset.tab === name); });
+  document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.toggle('active', p.id === 'panel-' + name); });
+  if (name === 'search') { $('searchInput').focus(); renderHistory(); }
+  if (name === 'activity') { activityCount = 0; updateActivityBadge(); }
+}
+
+// ===========================================================================
+// Connection
+// ===========================================================================
+function setConnStatus(state, label) {
+  $('connPill').innerHTML = '<span class="conn-dot ' + state + '"></span><span>' + esc(label) + '</span>';
 }
 
 function showSkeleton() {
-  ['proofCount', 'deploymentCount', 'chainCount', 'lastBlock'].forEach(function(id) {
-    $(id).innerHTML = '<span class="skeleton skeleton-stat"></span>';
+  ['proofCount','deploymentCount','chainCount','lastBlock'].forEach(function(id) {
+    $(id).innerHTML = '<span class="skeleton skel-stat"></span>';
+  });
+  ['proofSub','deploySub','chainSub','blockSub'].forEach(function(id) {
+    $(id).innerHTML = '<span class="skeleton skel-sub"></span>';
   });
 }
 
-function setConnStatus(state, label) {
-  var html = '<span class="conn-dot ' + state + '"></span><span style="color:var(--muted);font-size:0.75rem">' + esc(label) + '</span>';
-  $('connStatus').innerHTML = html;
-}
-
-// ---------------------------------------------------------------------------
-// Search type toggle — show chain/rpc inputs for address mode
-// ---------------------------------------------------------------------------
-$('searchType').addEventListener('change', function() {
-  var isAddr = $('searchType').value === 'address';
-  $('chainIdInput').style.display = isAddr ? '' : 'none';
-  $('rpcInput').style.display = isAddr ? '' : 'none';
-});
-
-// Allow Enter key in search input
-$('searchInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') search(); });
-
-// ---------------------------------------------------------------------------
-// Connect
-// ---------------------------------------------------------------------------
-async function connect() {
-  var url = $('resolverUrl').value.replace(/\/$/, '');
-  client = new ResolverClient({ baseUrl: url });
-
-  var btn = $('connectBtn');
-  setButtonLoading(btn, true);
-  setConnStatus('pending', 'Connecting...');
-  showSkeleton();
-  hideError();
-
-  try {
-    var status = await client.indexerStatus();
-    $('proofCount').textContent = status.proofCount ?? 0;
-    $('deploymentCount').textContent = status.deploymentCount ?? 0;
-    $('lastBlock').textContent = status.lastBlockNumber ? status.lastBlockNumber.toLocaleString() : '0';
-    $('chainCount').textContent = status.chainCount ?? '\u2014';
-    setConnStatus('ok', 'Connected');
-    $('refreshInfo').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
-    startAutoRefresh();
-  } catch (e) {
-    ['proofCount', 'deploymentCount', 'chainCount', 'lastBlock'].forEach(function(id) { $(id).textContent = '!'; });
-    setConnStatus('err', 'Error');
-    showError('Failed to connect: ' + (e.message || e));
-    stopAutoRefresh();
-  } finally {
-    setButtonLoading(btn, false);
+function setBtnLoading(btn, on, label) {
+  if (on) {
+    btn.disabled = true; btn._orig = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner"></span>' + (label ? ' ' + label : '');
+  } else {
+    btn.disabled = false; btn.innerHTML = btn._orig || btn.innerHTML;
   }
 }
 
-// ---------------------------------------------------------------------------
-// Auto-refresh
-// ---------------------------------------------------------------------------
+async function connect() {
+  var url = $('resolverUrl').value.trim().replace(/\/$/, '');
+  if (!url) { toast('No URL', 'Enter a resolver URL', '\u26A0'); return; }
+  resolverBase = url;
+  client = new ResolverClient({ baseUrl: url });
+
+  var btn = $('connectBtn');
+  setBtnLoading(btn, true, 'Connecting');
+  setConnStatus('pending', 'Connecting\u2026');
+  showSkeleton();
+  hideSearchError();
+  $('overviewEmpty').style.display = 'none';
+
+  try {
+    var s = await client.indexerStatus();
+    updateStats(s);
+    setConnStatus('ok', 'Connected');
+    $('refreshInfo').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    $('refreshBtn').style.display = '';
+    startAutoRefresh();
+    connectSSE();
+    toast('Connected', url, '\u2705');
+  } catch (e) {
+    ['proofCount','deploymentCount','chainCount','lastBlock'].forEach(function(id) { $(id).textContent = '\u2014'; });
+    setConnStatus('err', 'Error');
+    $('overviewEmpty').style.display = 'block';
+    toast('Connection failed', e.message || String(e), '\u274C', 'error');
+    stopAutoRefresh();
+  } finally {
+    setBtnLoading(btn, false);
+  }
+}
+
+function updateStats(s) {
+  $('proofCount').textContent = (s.proofCount ?? 0).toLocaleString();
+  $('deploymentCount').textContent = (s.deploymentCount ?? 0).toLocaleString();
+  $('chainCount').textContent = s.chainCount ?? '\u2014';
+  $('lastBlock').textContent = s.lastBlockNumber ? s.lastBlockNumber.toLocaleString() : '0';
+  $('proofSub').textContent = s.proofCount ? 'total verified' : '';
+  $('deploySub').textContent = s.deploymentCount ? 'across chains' : '';
+  $('chainSub').textContent = s.chainCount ? 'active chains' : '';
+  $('blockSub').textContent = s.lastBlockNumber ? 'indexed' : '';
+
+  // Sync progress bar
+  var wrap = $('syncBarWrap');
+  if (s.fromBlock != null && s.lastBlockNumber != null && s.tipBlock != null && s.tipBlock > s.fromBlock) {
+    wrap.classList.add('visible');
+    var total = s.tipBlock - s.fromBlock;
+    var done = Math.max(0, s.lastBlockNumber - s.fromBlock);
+    var pct = Math.min(100, Math.round(done / total * 100));
+    $('syncBarFill').classList.remove('indeterminate');
+    $('syncBarFill').style.width = pct + '%';
+    $('syncBarPct').textContent = pct + '%';
+    if (pct < 100) {
+      $('syncBarLabel').textContent = 'Syncing ' + (s.lastBlockNumber||0).toLocaleString() + ' / ' + (s.tipBlock||0).toLocaleString();
+    } else {
+      $('syncBarLabel').textContent = 'Fully synced';
+    }
+  } else if (s.lastBlockNumber === 0 || s.lastBlockNumber == null) {
+    wrap.classList.add('visible');
+    $('syncBarFill').classList.add('indeterminate');
+    $('syncBarLabel').textContent = 'Indexer syncing\u2026';
+    $('syncBarPct').textContent = '';
+  } else {
+    wrap.classList.remove('visible');
+  }
+}
+
+// ===========================================================================
+// Auto-refresh & Manual refresh
+// ===========================================================================
+async function refreshStats() {
+  if (!client) return;
+  try {
+    var s = await client.indexerStatus();
+    updateStats(s);
+    setConnStatus('ok', 'Connected');
+    $('refreshInfo').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  } catch (e) { setConnStatus('err', 'Refresh failed'); }
+}
+
 function startAutoRefresh() {
   stopAutoRefresh();
   if (!$('autoRefresh').checked) return;
-  refreshTimer = setInterval(async function() {
-    if (!client) return;
-    try {
-      var status = await client.indexerStatus();
-      $('proofCount').textContent = status.proofCount ?? 0;
-      $('deploymentCount').textContent = status.deploymentCount ?? 0;
-      $('lastBlock').textContent = status.lastBlockNumber ? status.lastBlockNumber.toLocaleString() : '0';
-      $('chainCount').textContent = status.chainCount ?? '\u2014';
-      setConnStatus('ok', 'Connected');
-      $('refreshInfo').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
-    } catch (e) {
-      setConnStatus('err', 'Refresh failed');
-    }
-  }, 30000);
+  refreshTimer = setInterval(refreshStats, 30000);
+}
+function stopAutoRefresh() { if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; } }
+$('autoRefresh').addEventListener('change', function() { if (this.checked) startAutoRefresh(); else stopAutoRefresh(); });
+
+function manualRefresh() {
+  var btn = $('refreshBtn');
+  btn.style.transform = 'rotate(360deg)';
+  btn.style.transition = 'transform 0.5s';
+  setTimeout(function() { btn.style.transform = ''; btn.style.transition = ''; }, 500);
+  refreshStats();
 }
 
-function stopAutoRefresh() {
-  if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+// ===========================================================================
+// SSE Live Events
+// ===========================================================================
+function connectSSE() {
+  if (eventSource) { eventSource.close(); eventSource = null; }
+  if (!resolverBase) return;
+
+  $('sseStatus').innerHTML = '<span class="conn-dot pending"></span> Connecting\u2026';
+  eventSource = new EventSource(resolverBase + '/events');
+
+  eventSource.addEventListener('status', function(e) {
+    $('sseStatus').innerHTML = '<span class="conn-dot ok"></span> Live';
+    try { updateStats(JSON.parse(e.data)); } catch(ex) {}
+  });
+
+  eventSource.addEventListener('proof', function(e) {
+    try { addActivity('proof', JSON.parse(e.data)); } catch(ex) {}
+  });
+
+  eventSource.addEventListener('deployment', function(e) {
+    try { addActivity('deployment', JSON.parse(e.data)); } catch(ex) {}
+  });
+
+  eventSource.onerror = function() {
+    $('sseStatus').innerHTML = '<span class="conn-dot err"></span> Disconnected';
+  };
+  eventSource.onopen = function() {
+    $('sseStatus').innerHTML = '<span class="conn-dot ok"></span> Live';
+  };
 }
 
-$('autoRefresh').addEventListener('change', function() {
-  if (this.checked) startAutoRefresh(); else stopAutoRefresh();
+function addActivity(type, data) {
+  var item = { type: type, data: data, time: new Date() };
+  activityEvents.unshift(item);
+  if (activityEvents.length > 200) activityEvents.pop();
+
+  if (!document.querySelector('.tab[data-tab="activity"]').classList.contains('active')) {
+    activityCount++;
+    updateActivityBadge();
+  }
+
+  renderActivity();
+  $('clearActivityBtn').style.display = '';
+
+  if (type === 'proof') toast('New Proof', truncate(data.proofHash || '', 32), '\u2705');
+  else toast('Deployment', chainName(data.chainId || 0) + ' ' + truncate(data.address || '', 22), '\u26A1');
+}
+
+function updateActivityBadge() {
+  var badge = $('activityBadge');
+  if (activityCount > 0) { badge.style.display = ''; badge.textContent = activityCount > 99 ? '99+' : activityCount; }
+  else { badge.style.display = 'none'; }
+}
+
+function setActivityFilter(f, btn) {
+  activityFilter = f;
+  document.querySelectorAll('.filter-pill').forEach(function(p) { p.classList.toggle('active', p.dataset.filter === f); });
+  renderActivity();
+}
+
+function clearActivity() {
+  activityEvents = [];
+  activityCount = 0;
+  updateActivityBadge();
+  renderActivity();
+  $('clearActivityBtn').style.display = 'none';
+}
+
+function renderActivity() {
+  var list = $('activityList');
+  var filtered = activityFilter === 'all' ? activityEvents : activityEvents.filter(function(ev) { return ev.type === activityFilter; });
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="activity-empty"><div class="activity-empty-icon">&#9889;</div><div class="activity-empty-text">' +
+      (activityEvents.length === 0 ? 'Connect to a resolver to see live events' : 'No ' + activityFilter + ' events') + '</div></div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(function(ev) {
+    var isProof = ev.type === 'proof';
+    var title = isProof ? 'Proof Submitted' : 'Deployment Registered';
+    var desc = isProof
+      ? (ev.data.proofHash || ev.data.codeHash || '')
+      : (chainName(ev.data.chainId || 0) + ' — ' + (ev.data.address || ''));
+    var time = relativeTime(ev.time) || ev.time.toLocaleTimeString();
+    var clickData = isProof
+      ? 'doSearch(\'codeHash\',\'' + esc(ev.data.codeHash || '') + '\')'
+      : 'doSearch(\'codeHash\',\'' + esc(ev.data.codeHash || '') + '\')';
+
+    return '<div class="activity-item" onclick="' + clickData + '; switchTab(\'search\')">' +
+      '<div class="activity-icon ' + ev.type + '">' + (isProof ? '\u2705' : '\u26A1') + '</div>' +
+      '<div class="activity-body">' +
+        '<div class="activity-title">' + esc(title) +
+          (isProof ? '' : '<span class="chain-tag ' + chainColorClass(ev.data.chainId||0) + '" style="font-size:0.6rem">' + esc(chainName(ev.data.chainId||0)) + '</span>') +
+        '</div>' +
+        '<div class="activity-desc">' + esc(desc) + '</div>' +
+        '<div class="activity-time">' + esc(time) + '</div>' +
+      '</div></div>';
+  }).join('');
+}
+
+// ===========================================================================
+// Search Type
+// ===========================================================================
+function setSearchType(type, btn) {
+  currentSearchType = type;
+  document.querySelectorAll('.type-pill').forEach(function(p) { p.classList.toggle('active', p.dataset.type === type); });
+  $('searchExtras').style.display = type === 'address' ? 'flex' : 'none';
+  $('autoDetectBadge').classList.remove('visible');
+}
+
+function autoDetectType(val) {
+  val = val.trim();
+  if (val.startsWith('0x') && val.length === 66) return 'codeHash';
+  if (val.startsWith('0x') && val.length === 42) return 'address';
+  return null;
+}
+
+$('searchInput').addEventListener('input', function() {
+  var detected = autoDetectType(this.value);
+  if (detected && detected !== currentSearchType) {
+    setSearchType(detected, null);
+    $('autoDetectBadge').classList.add('visible');
+  } else {
+    $('autoDetectBadge').classList.remove('visible');
+  }
 });
+$('searchInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') doSearch(); });
 
-// ---------------------------------------------------------------------------
-// Search — uses ResolverClient
-// ---------------------------------------------------------------------------
-async function search() {
-  if (!client) { showError('Connect to a resolver first'); return; }
-  hideError();
-  $('result').classList.remove('visible');
+// ===========================================================================
+// Error
+// ===========================================================================
+function showSearchError(msg) { $('searchErrorMsg').textContent = msg; $('searchError').classList.add('visible'); }
+function hideSearchError() { $('searchError').classList.remove('visible'); }
+function showLoading(text) {
+  $('loadingText').textContent = text || 'Looking up\u2026';
+  $('loadingOverlay').classList.add('visible');
+  $('resultPanel').classList.remove('visible');
+  $('searchEmpty').style.display = 'none';
+}
+function hideLoading() { $('loadingOverlay').classList.remove('visible'); }
 
-  var type = $('searchType').value;
-  var input = $('searchInput').value.trim();
+// ===========================================================================
+// Search
+// ===========================================================================
+async function doSearch(overrideType, overrideInput) {
+  if (!client) { showSearchError('Connect to a resolver first'); return; }
+  hideSearchError();
+  $('resultPanel').classList.remove('visible');
+  $('searchEmpty').style.display = 'none';
+
+  var type = overrideType || currentSearchType;
+  var input = overrideInput || $('searchInput').value.trim();
   if (!input) return;
 
+  if (overrideType) {
+    setSearchType(overrideType, null);
+    $('searchInput').value = input;
+  }
+
+  addToHistory(type, input);
+
   var btn = $('searchBtn');
-  setButtonLoading(btn, true);
-  showLoading('Looking up ' + type.replace(/([A-Z])/g, ' $1').toLowerCase() + '...');
+  setBtnLoading(btn, true, 'Searching');
+  showLoading('Looking up ' + type.replace(/([A-Z])/g, ' $1').toLowerCase() + '\u2026');
 
   try {
     var data;
     if (type === 'codeHash') {
       data = await client.lookupByCodeHash(input);
-      // Also fetch indexed deployments for the timeline
-      try {
-        var depData = await client.getDeployments(input);
-        data._deployments = depData.deployments || [];
-      } catch (e) {}
+      try { var d = await client.getDeployments(input); data._deployments = d.deployments || []; } catch(e) {}
     } else if (type === 'proof') {
       data = await client.getProof(input);
     } else {
       var chainId = $('chainIdInput').value.trim();
-      if (!chainId) { hideLoading(); showError('Chain ID required for address lookup'); setButtonLoading(btn, false); return; }
+      if (!chainId) { hideLoading(); showSearchError('Chain ID is required for address lookup'); setBtnLoading(btn, false); return; }
       var rpc = $('rpcInput').value.trim() || undefined;
       data = await client.lookupByAddress(parseInt(chainId, 10), input, rpc);
-      // Fetch deployments
+      // Tag the chain we directly confirmed via live RPC
+      data._queriedChain = { chainId: parseInt(chainId, 10), address: input, rpc: rpc };
       if (data.codeHash) {
-        try {
-          var depData2 = await client.getDeployments(data.codeHash);
-          data._deployments = depData2.deployments || [];
-        } catch (e) {}
+        try { var d2 = await client.getDeployments(data.codeHash); data._deployments = d2.deployments || []; } catch(e) {}
       }
     }
+    // Auto-fetch full proof details (source code, compiler info) for the first proof
+    if (type !== 'proof' && data.proofs && data.proofs.length) {
+      try { data._fullProof = await client.getProof(data.proofs[0].proofHash); } catch(e) {}
+    }
     hideLoading();
+    lastRawResult = data;
     renderResult(type, data);
   } catch (e) {
     hideLoading();
-    var msg = e.status ? 'Not found (HTTP ' + e.status + ')' : 'Request failed';
-    showError(msg + ': ' + (e.message || e));
+    $('searchEmpty').style.display = 'none';
+    var msg = e.status === 404 ? 'Not found — no record for that ' + type.replace(/([A-Z])/g, ' $1').toLowerCase()
+      : 'Request failed: ' + (e.message || String(e));
+    showSearchError(msg);
   } finally {
-    setButtonLoading(btn, false);
+    setBtnLoading(btn, false);
   }
 }
 
-// ---------------------------------------------------------------------------
-// Render
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// Search History
+// ===========================================================================
+function loadHistory() { try { searchHistoryData = JSON.parse(localStorage.getItem('cv-history') || '[]'); } catch(e) { searchHistoryData = []; } }
+function saveHistory() { localStorage.setItem('cv-history', JSON.stringify(searchHistoryData.slice(0, 12))); }
+function addToHistory(type, input) {
+  searchHistoryData = searchHistoryData.filter(function(h) { return h.input !== input; });
+  searchHistoryData.unshift({ type: type, input: input });
+  if (searchHistoryData.length > 12) searchHistoryData.pop();
+  saveHistory(); renderHistory();
+}
+function removeFromHistory(idx) { searchHistoryData.splice(idx, 1); saveHistory(); renderHistory(); }
+function clearHistory() { searchHistoryData = []; saveHistory(); renderHistory(); }
+function renderHistory() {
+  loadHistory();
+  var wrap = $('searchHistoryWrap');
+  var el = $('searchHistory');
+  if (searchHistoryData.length === 0) { wrap.classList.remove('visible'); return; }
+  wrap.classList.add('visible');
+  el.innerHTML = searchHistoryData.map(function(h, i) {
+    return '<span class="history-chip" onclick="useHistory(' + i + ')">' +
+      '<span class="hist-type">' + esc(h.type.replace(/([A-Z])/g, ' $1').trim()) + '</span>' +
+      esc(truncate(h.input, 22)) +
+      '<span class="hist-remove" onclick="event.stopPropagation();removeFromHistory(' + i + ')">&times;</span></span>';
+  }).join('');
+}
+function useHistory(idx) {
+  var h = searchHistoryData[idx]; if (!h) return;
+  setSearchType(h.type, null);
+  $('searchInput').value = h.input;
+  doSearch();
+}
+
+// ===========================================================================
+// Render Results
+// ===========================================================================
 function renderResult(type, data) {
-  var panel = $('result');
-  var badge = $('statusBadge');
-  var body = $('resultBody');
+  var panel = $('resultPanel');
+  var html = '';
 
   if (type === 'proof') {
-    badge.className = 'badge badge-verified';
-    badge.textContent = 'Verified';
-
     var proof = data.proof || data;
-    var html = detail('Proof Hash', data.proofHash || proof.attestation?.proofHash) +
-      detail('Code Hash', proof.attestation?.codeHash || data.codeHash) +
-      detail('Source Hash', proof.attestation?.sourceHash || data.sourceHash) +
-      detail('Compiler', data.compilerVersion || proof.compiler?.version) +
-      detailHtml('IPFS CID', ipfsLinkFull(data.cid || data.ipfsCid));
+    html = '<div class="result-card">' +
+      '<div class="result-top">' +
+        '<div class="result-top-left">' +
+          '<span class="badge badge-verified">&#10003; Verified</span>' +
+          (proof.contract ? '<span style="font-size:0.8rem;font-weight:600;font-family:var(--mono)">' + esc(proof.contract.name || '') + '</span>' : '') +
+        '</div>' +
+        '<div class="result-top-right">' +
+          renderViewToggle() +
+          '<button class="btn btn-ghost btn-sm" onclick="downloadResult()" title="Download JSON">&#8681; JSON</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="result-body">' +
+        '<div class="detail-grid">' +
+          detailCopy('Proof Hash', data.proofHash || proof.attestation && proof.attestation.proofHash) +
+          detailCopy('Code Hash', proof.attestation && proof.attestation.codeHash || data.codeHash) +
+          detailCopy('Source Hash', proof.attestation && proof.attestation.sourceHash || data.sourceHash) +
+          detail('Compiler', data.compilerVersion || (proof.compiler && proof.compiler.version)) +
+          detailHtml('IPFS CID', ipfsLinkFull(data.cid || data.ipfsCid)) +
+          (data.submitter ? detailHtml('Submitter', addressLink(data.submitter, 11155111)) : '') +
+          (data.submittedAt ? detail('Submitted', formatTs(data.submittedAt)) : '') +
+          (proof.metadata && proof.metadata.createdAt ? detail('Created', formatTs(proof.metadata.createdAt)) : '') +
+        '</div>' +
+        renderSourceViewer(proof.sourceBundle && proof.sourceBundle.sources, proof.contract) +
+        renderTimeline(proof.deployments || []) +
+        renderJsonViewer(data) +
+      '</div></div>';
 
-    if (data.submitter) {
-      html += detailHtml('Submitter', addressLink(data.submitter, 11155111));
+  } else {
+    var proofs = data.proofs || [];
+    var chainIds = data.chainIds || [];
+    var queriedChain = data._queriedChain || null;
+    var fp = data._fullProof || null; // full proof with source code
+    var fpProof = fp && fp.proof ? fp.proof : null;
+    var verified = proofs.length > 0;
+    var badgeClass = verified ? 'badge-verified' : 'badge-unverified';
+    var badgeText = verified ? '\u2713 ' + proofs.length + ' proof' + (proofs.length > 1 ? 's' : '') : '\u2717 Unverified';
+
+    // All confirmed chains: live-queried + registry (deduplicated)
+    var allChainIds = chainIds.slice();
+    if (queriedChain && allChainIds.indexOf(queriedChain.chainId) === -1) {
+      allChainIds.unshift(queriedChain.chainId);
+    }
+    var totalChains = allChainIds.length;
+    if (totalChains) $('chainCount').textContent = totalChains;
+
+    // Compiler / contract info from full proof
+    var contractName = fpProof && fpProof.contract && fpProof.contract.name || '';
+    var contractPath = fpProof && fpProof.contract && fpProof.contract.path || '';
+    var compilerVer = (fp && fp.compilerVersion) || (fpProof && fpProof.compiler && fpProof.compiler.version) || (proofs.length && proofs[0].compilerVersion) || '';
+    var evmVersion = fpProof && fpProof.compiler && fpProof.compiler.settings && fpProof.compiler.settings.evmVersion || '';
+    var optimizerEnabled = fpProof && fpProof.compiler && fpProof.compiler.settings && fpProof.compiler.settings.optimizer && fpProof.compiler.settings.optimizer.enabled;
+    var optimizerRuns = fpProof && fpProof.compiler && fpProof.compiler.settings && fpProof.compiler.settings.optimizer && fpProof.compiler.settings.optimizer.runs;
+    var viaIR = fpProof && fpProof.compiler && fpProof.compiler.settings && fpProof.compiler.settings.viaIR;
+    var sourceHash = fpProof && fpProof.attestation && fpProof.attestation.sourceHash || '';
+    var proofHashFull = fp && fp.proofHash || (proofs.length && proofs[0].proofHash) || '';
+    var ipfsCid = fp && fp.cid || (proofs.length && (proofs[0].cid || proofs[0].ipfsCid)) || '';
+    var submitter = fp && fp.submitter || (proofs.length && proofs[0].submitter) || '';
+    var submittedAt = fp && fp.submittedAt || (proofs.length && proofs[0].submittedAt) || null;
+
+    html = '<div class="result-card">' +
+      '<div class="result-top">' +
+        '<div class="result-top-left">' +
+          '<span class="badge ' + badgeClass + '">' + esc(badgeText) + '</span>' +
+          (totalChains ? '<span class="badge badge-info">' + totalChains + ' chain' + (totalChains > 1 ? 's' : '') + '</span>' : '') +
+          (contractName ? '<span class="badge badge-info" style="font-family:var(--mono)">' + esc(contractName) + '</span>' : '') +
+        '</div>' +
+        '<div class="result-top-right">' +
+          renderViewToggle() +
+          '<button class="btn btn-ghost btn-sm" onclick="downloadResult()" title="Download JSON">&#8681; JSON</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="result-body">' +
+        '<div class="detail-grid">' +
+          detailCopy('Code Hash', data.codeHash) +
+          (contractName ? detailHtml('Contract', esc(contractName) + (contractPath ? ' <span style="color:var(--text-muted);font-size:0.85em;font-family:var(--mono)">in ' + esc(contractPath) + '</span>' : '')) : '') +
+          (compilerVer ? detail('Compiler', compilerVer) : '') +
+          (evmVersion ? detail('EVM Version', evmVersion) : '') +
+          (compilerVer ? detail('Optimizer', optimizerEnabled ? 'Enabled (' + (optimizerRuns !== undefined ? optimizerRuns + ' runs' : '') + ')' : 'Disabled') : '') +
+          (viaIR ? detail('Via IR', 'Yes') : '') +
+          (sourceHash ? detailCopy('Source Hash', sourceHash) : '') +
+          (proofHashFull ? detailCopy('Proof Hash', proofHashFull) : '') +
+          (ipfsCid ? detailHtml('IPFS CID', ipfsLinkFull(ipfsCid)) : '') +
+          (submitter ? detailHtml('Submitter', addressLink(submitter, 1)) : '') +
+          (submittedAt ? detail('Verified', formatTs(submittedAt)) : '') +
+        '</div>';
+
+    // Deployed chains section — show all with live/registry badges
+    if (totalChains > 0) {
+      html += '<div class="section-header"><span class="section-title">Deployed Chains</span><span class="section-count">' + totalChains + ' chain' + (totalChains > 1 ? 's' : '') + '</span></div>';
+      allChainIds.forEach(function(c) {
+        var isLive = queriedChain && c === queriedChain.chainId;
+        var isRegistry = chainIds.indexOf(c) !== -1;
+        var addr = isLive ? queriedChain.address : (data.deploymentsByChain && data.deploymentsByChain[c] && data.deploymentsByChain[c][0]) || '';
+        var explorerBase = explorerUrl(c);
+        var addrHtml = addr
+          ? (explorerBase
+              ? '<a href="' + explorerBase + '/address/' + esc(addr) + '" target="_blank" rel="noopener">' + esc(addr) + '</a>'
+              : esc(addr))
+          : '';
+        html += '<div class="chain-row">' +
+          '<div class="chain-row-left">' +
+            '<span class="chain-tag ' + chainColorClass(c) + '">' + chainLogo(c) + ' ' + esc(chainName(c)) + ' <span style="opacity:0.6">(' + c + ')</span></span>' +
+            (isLive ? '<span class="badge badge-live">&#9679; Live</span>' : '') +
+            (isRegistry ? '<span class="badge badge-registry">&#10003; Registry</span>' : '') +
+          '</div>' +
+          (addrHtml ? '<div class="chain-row-addr">' + addrHtml + '</div>' : '') +
+        '</div>';
+      });
+    } else if (!queriedChain) {
+      // codeHash lookup with no chains at all
+      html += '<div class="section-header"><span class="section-title">Deployed Chains</span></div>' +
+        '<div style="color:var(--text-muted);font-size:0.8rem;padding:0.5rem 0">No deployments registered in the indexer.</div>';
     }
 
-    // Source code viewer
-    var sources = proof.sourceBundle?.sources;
-    if (sources) {
-      html += renderSourceViewer(sources, proof.contract);
+    if (proofs.length) {
+      html += '<div class="section-header"><span class="section-title">Proofs</span><span class="section-count">' + proofs.length + '</span></div>' +
+        '<table class="proofs-table"><thead><tr><th>Proof Hash</th><th>Compiler</th><th>IPFS</th><th>Submitter</th><th>Submitted</th></tr></thead><tbody>' +
+        proofs.map(function(p) {
+          return '<tr>' +
+            '<td><a class="proof-hash-link" href="#" onclick="lookupProof(\'' + esc(p.proofHash) + '\');return false">' + esc(truncate(p.proofHash, 20)) + '</a></td>' +
+            '<td>' + esc(p.compilerVersion || '\u2014') + '</td>' +
+            '<td>' + ipfsLink(p.cid || p.ipfsCid) + '</td>' +
+            '<td>' + (p.submitter ? '<span title="' + esc(p.submitter) + '">' + esc(truncate(p.submitter, 18)) + '</span>' : '\u2014') + '</td>' +
+            '<td title="' + esc(formatTs(p.submittedAt)) + '">' + (p.submittedAt ? relativeTime(p.submittedAt) || '\u2014' : '\u2014') + '</td>' +
+          '</tr>';
+        }).join('') +
+        '</tbody></table>';
     }
 
-    // Deployments from the proof
-    if (proof.deployments?.length) {
-      html += renderTimeline(proof.deployments);
+    // Source code from full proof
+    if (fpProof && fpProof.sourceBundle && fpProof.sourceBundle.sources) {
+      html += renderSourceViewer(fpProof.sourceBundle.sources, fpProof.contract);
     }
 
-    body.innerHTML = html;
-    panel.classList.add('visible');
-    return;
+    html += renderTimeline(data._deployments || []) + renderJsonViewer(data) + '</div></div>';
   }
 
-  // Code hash or address lookup
-  var proofs = data.proofs || [];
-  var chainIds = data.chainIds || [];
-  var verified = proofs.length > 0;
-
-  badge.className = 'badge ' + (verified ? 'badge-verified' : 'badge-unverified');
-  badge.textContent = verified ? proofs.length + ' proof' + (proofs.length > 1 ? 's' : '') : 'Unverified';
-
-  if (chainIds.length) $('chainCount').textContent = chainIds.length;
-
-  var html = detail('Code Hash', data.codeHash);
-
-  if (chainIds.length) {
-    html += '<div class="detail"><div class="detail-label">Deployed Chains</div><div class="chains-list">' +
-      chainIds.map(function(c) { return '<span class="chain-tag">' + esc(chainName(c)) + ' (' + c + ')</span>'; }).join('') + '</div></div>';
-  }
-
-  if (proofs.length) {
-    html += '<div class="detail"><div class="detail-label">Proofs</div>' +
-      '<table class="proofs-table"><thead><tr><th>Hash</th><th>Compiler</th><th>IPFS</th><th>Submitter</th></tr></thead><tbody>' +
-      proofs.map(function(p) {
-        var submitter = p.submitter ? esc(truncate(p.submitter)) : '&mdash;';
-        return '<tr><td><a href="#" onclick="lookupProof(\'' + esc(p.proofHash) + '\');return false">' + esc(truncate(p.proofHash)) + '</a></td>' +
-          '<td>' + esc(p.compilerVersion) + '</td><td>' + ipfsLink(p.cid || p.ipfsCid) + '</td><td>' + submitter + '</td></tr>';
-      }).join('') + '</tbody></table></div>';
-  }
-
-  // Indexed deployment timeline
-  var deployments = data._deployments || [];
-  if (deployments.length) {
-    html += renderTimeline(deployments);
-  }
-
-  body.innerHTML = html;
+  panel.innerHTML = html;
   panel.classList.add('visible');
 }
 
 function lookupProof(hash) {
-  $('searchType').value = 'proof';
+  switchTab('search');
+  setSearchType('proof', null);
   $('searchInput').value = hash;
-  $('chainIdInput').style.display = 'none';
-  $('rpcInput').style.display = 'none';
-  search();
+  doSearch();
 }
 
 function detail(label, value) {
   return '<div class="detail"><div class="detail-label">' + esc(label) + '</div><div class="detail-value">' + esc(value || '\u2014') + '</div></div>';
 }
-
-function detailHtml(label, valueHtml) {
-  return '<div class="detail"><div class="detail-label">' + esc(label) + '</div><div class="detail-value">' + (valueHtml || '&mdash;') + '</div></div>';
+function detailCopy(label, value) {
+  if (!value) return detail(label, '\u2014');
+  return '<div class="detail"><div class="detail-label">' + esc(label) + '</div>' + copyable(value) + '</div>';
+}
+function detailHtml(label, html) {
+  return '<div class="detail"><div class="detail-label">' + esc(label) + '</div><div class="detail-value">' + (html || '\u2014') + '</div></div>';
 }
 
-// ---------------------------------------------------------------------------
-// Source code viewer with line numbers & collapsible
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// View Toggle (Formatted / JSON)
+// ===========================================================================
+function renderViewToggle() {
+  return '<div class="view-toggle">' +
+    '<button class="view-toggle-btn active" onclick="toggleView(this, \'formatted\')">Formatted</button>' +
+    '<button class="view-toggle-btn" onclick="toggleView(this, \'json\')">JSON</button></div>';
+}
+
+function toggleView(btn, mode) {
+  var parent = btn.closest('.result-card');
+  parent.querySelectorAll('.view-toggle-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  var viewer = parent.querySelector('.json-viewer');
+  if (mode === 'json') viewer.classList.add('visible');
+  else viewer.classList.remove('visible');
+}
+
+function renderJsonViewer(data) {
+  var clean = Object.assign({}, data); delete clean._deployments;
+  var json = JSON.stringify(clean, function(k, v) { return typeof v === 'bigint' ? v.toString() : v; }, 2);
+  return '<div class="json-viewer"><pre>' + esc(json) + '</pre></div>';
+}
+
+// ===========================================================================
+// Source Code Viewer
+// ===========================================================================
 function renderSourceViewer(sources, contractInfo) {
+  if (!sources) return '';
   var paths = Object.keys(sources);
   var totalSize = 0;
   paths.forEach(function(p) { totalSize += (sources[p].content || '').length; });
-
-  var html = '<div class="source-viewer">' +
-    '<button class="source-toggle" onclick="toggleSources(this)">' +
-      '<span class="arrow">&#9654;</span> Source Code (' + paths.length + ' file' + (paths.length > 1 ? 's' : '') + ', ' + formatBytes(totalSize) + ')' +
-    '</button>' +
-    '<div class="source-files">';
-
-  // Sort: main contract path first
   if (contractInfo && contractInfo.path) {
     paths.sort(function(a, b) {
-      if (a === contractInfo.path) return -1;
-      if (b === contractInfo.path) return 1;
-      return a.localeCompare(b);
+      if (a === contractInfo.path) return -1; if (b === contractInfo.path) return 1; return a.localeCompare(b);
     });
   }
+  var html = '<div class="source-viewer">' +
+    '<button class="source-toggle" onclick="toggleSources(this)">' +
+      '<span class="source-arrow">&#9654;</span>' +
+      ' Source Code &mdash; ' + paths.length + ' file' + (paths.length > 1 ? 's' : '') + ', ' + formatBytes(totalSize) +
+    '</button><div class="source-files">';
 
   paths.forEach(function(path, idx) {
     var content = sources[path].content || '';
     var lines = content.split('\n');
-    var uniqueId = 'source-' + idx;
-    var sizeStr = formatBytes(content.length);
-
+    var uid = 'src-' + idx + '-' + Date.now();
     html += '<div class="source-file">' +
       '<div class="source-file-header">' +
         '<span class="source-file-path">' + esc(path) + '</span>' +
-        '<span style="display:flex;gap:0.5rem;align-items:center">' +
-          '<span class="source-file-size">' + esc(sizeStr) + ' &middot; ' + lines.length + ' lines</span>' +
-          '<button class="copy-btn" onclick="copySource(\'' + uniqueId + '\', this)">Copy</button>' +
-        '</span>' +
-      '</div>' +
-      '<pre><code id="' + uniqueId + '">' +
+        '<span class="source-file-meta">' +
+          '<span class="source-file-size">' + formatBytes(content.length) + ' &middot; ' + lines.length + ' lines</span>' +
+          '<button class="copy-btn" onclick="copySourceCode(\'' + uid + '\', this)">Copy</button>' +
+        '</span></div>' +
+      '<pre><code id="' + uid + '">' +
         lines.map(function(line, i) {
           return '<span class="source-line"><span class="line-num">' + (i + 1) + '</span><span class="line-content">' + esc(line) + '</span></span>';
         }).join('\n') +
-      '</code></pre>' +
-    '</div>';
+      '</code></pre></div>';
   });
-
   html += '</div></div>';
   return html;
 }
 
 function toggleSources(btn) {
   var files = btn.nextElementSibling;
-  var arrow = btn.querySelector('.arrow');
-  var isOpen = files.classList.contains('visible');
-  if (isOpen) {
-    files.classList.remove('visible');
-    arrow.classList.remove('open');
-  } else {
-    files.classList.add('visible');
-    arrow.classList.add('open');
-  }
+  var arrow = btn.querySelector('.source-arrow');
+  files.classList.toggle('visible');
+  arrow.classList.toggle('open');
 }
 
-function copySource(id, btn) {
-  var el = document.getElementById(id);
-  if (!el) return;
-  var text = el.textContent;
-  navigator.clipboard.writeText(text).then(function() {
-    btn.textContent = 'Copied!';
-    btn.classList.add('copied');
-    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
-  }).catch(function() {});
-}
-
-// ---------------------------------------------------------------------------
-// Deployment timeline
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// Deployment Timeline
+// ===========================================================================
 function renderTimeline(deployments) {
-  if (!deployments.length) return '';
-
-  var html = '<div class="detail"><div class="detail-label">Deployments (' + deployments.length + ')</div><div class="timeline">';
-
+  if (!deployments || !deployments.length) return '';
+  var html = '<div class="section-header"><span class="section-title">Deployments</span><span class="section-count">' + deployments.length + '</span></div>' +
+    '<div class="timeline">';
   deployments.forEach(function(dep) {
     var cid = dep.chainId || 0;
-    var name = chainName(cid);
-    var addr = dep.address || '';
-    var block = dep.blockNumber;
-    var txHash = dep.transactionHash || '';
-
     html += '<div class="timeline-item">' +
       '<div class="timeline-dot"></div>' +
       '<div class="timeline-content">' +
-        '<div class="timeline-chain">' + esc(name) + ' <span class="chain-tag">' + cid + '</span></div>' +
-        '<div class="timeline-addr">' + addressLink(addr, cid) + '</div>' +
-        '<div class="timeline-meta">' +
-          (block ? 'Block ' + esc(String(block)) : '') +
-          (txHash ? ' &middot; Tx ' + txLink(txHash, cid) : '') +
+        '<div class="timeline-chain">' +
+          esc(chainName(cid)) +
+          '<span class="chain-tag ' + chainColorClass(cid) + '" style="font-size:0.62rem">' + chainLogo(cid) + ' ' + cid + '</span>' +
         '</div>' +
-      '</div>' +
-    '</div>';
+        '<div class="timeline-addr">' + addressLink(dep.address || '', cid) + '</div>' +
+        '<div class="timeline-meta">' +
+          (dep.blockNumber ? 'Block ' + esc(String(dep.blockNumber)) : '') +
+          (dep.transactionHash ? ' &middot; Tx ' + txLink(dep.transactionHash, cid) : '') +
+        '</div>' +
+      '</div></div>';
   });
-
-  html += '</div></div>';
+  html += '</div>';
   return html;
 }
 
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// Command Palette (⌘K) — with keyboard navigation
+// ===========================================================================
+var paletteItemsData = [];
+
+function openPalette() {
+  $('paletteOverlay').classList.add('visible');
+  $('paletteInput').value = '';
+  paletteSelectedIdx = -1;
+  $('paletteInput').focus();
+  renderPaletteResults('');
+}
+
+function closePalette() { $('paletteOverlay').classList.remove('visible'); paletteSelectedIdx = -1; }
+
+$('paletteInput').addEventListener('input', function() {
+  paletteSelectedIdx = -1;
+  renderPaletteResults(this.value);
+});
+
+$('paletteInput').addEventListener('keydown', function(e) {
+  var items = $('paletteResults').querySelectorAll('.palette-item');
+  if (e.key === 'Escape') { closePalette(); return; }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    paletteSelectedIdx = Math.min(paletteSelectedIdx + 1, items.length - 1);
+    updatePaletteSelection(items);
+    return;
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    paletteSelectedIdx = Math.max(paletteSelectedIdx - 1, -1);
+    updatePaletteSelection(items);
+    return;
+  }
+  if (e.key === 'Enter') {
+    if (paletteSelectedIdx >= 0 && paletteItemsData[paletteSelectedIdx]) {
+      paletteItemsData[paletteSelectedIdx](); return;
+    }
+    var val = this.value.trim(); if (!val) return;
+    closePalette(); switchTab('search');
+    if (val.length === 66 && val.startsWith('0x')) { setSearchType('codeHash', null); }
+    else if (val.length === 42 && val.startsWith('0x')) { setSearchType('address', null); }
+    else { setSearchType('codeHash', null); }
+    $('searchInput').value = val; doSearch();
+  }
+});
+
+function updatePaletteSelection(items) {
+  items.forEach(function(it, i) { it.classList.toggle('selected', i === paletteSelectedIdx); });
+  if (paletteSelectedIdx >= 0 && items[paletteSelectedIdx]) {
+    items[paletteSelectedIdx].scrollIntoView({ block: 'nearest' });
+  }
+}
+
+function renderPaletteResults(query) {
+  var el = $('paletteResults');
+  var items = [];
+
+  items.push({ icon: '\u2315', text: 'Search by Code Hash', hint: '0x (66 chars)', action: function() { closePalette(); switchTab('search'); setSearchType('codeHash', null); $('searchInput').focus(); } });
+  items.push({ icon: '\u2316', text: 'Search by Address', hint: '0x (42 chars)', action: function() { closePalette(); switchTab('search'); setSearchType('address', null); $('searchExtras').style.display='flex'; $('searchInput').focus(); } });
+  items.push({ icon: '\u2317', text: 'Search by Proof Hash', hint: '0x (66 chars)', action: function() { closePalette(); switchTab('search'); setSearchType('proof', null); $('searchInput').focus(); } });
+  items.push({ icon: '\u2302', text: 'Go to Overview', hint: '', action: function() { closePalette(); switchTab('overview'); } });
+  items.push({ icon: '\u26A1', text: 'Go to Activity', hint: '', action: function() { closePalette(); switchTab('activity'); } });
+
+  loadHistory();
+  searchHistoryData.slice(0, 5).forEach(function(h) {
+    items.push({ icon: '\u29B6', text: truncate(h.input, 42), hint: h.type.replace(/([A-Z])/g, ' $1').trim(), action: function() { closePalette(); switchTab('search'); setSearchType(h.type, null); $('searchInput').value = h.input; doSearch(); } });
+  });
+
+  if (query) {
+    var q = query.toLowerCase();
+    items = items.filter(function(it) { return it.text.toLowerCase().includes(q) || (it.hint && it.hint.toLowerCase().includes(q)); });
+  }
+
+  paletteItemsData = items.map(function(it) { return it.action; });
+
+  var hasHistory = searchHistoryData.length > 0 && !query;
+  var actionCount = Math.min(5, items.length);
+
+  el.innerHTML = (actionCount > 0 ? '<div class="palette-section-label">Actions</div>' : '') +
+    items.slice(0, actionCount).map(function(it, i) {
+      return '<div class="palette-item" data-idx="' + i + '" onmousedown="paletteItemsData[' + i + ']()">' +
+        '<span class="palette-item-icon">' + it.icon + '</span>' +
+        '<span class="palette-item-text">' + esc(it.text) + '</span>' +
+        '<span class="palette-item-hint">' + esc(it.hint || '') + '</span></div>';
+    }).join('') +
+    (hasHistory && items.length > actionCount ? '<div class="palette-section-label">Recent</div>' : '') +
+    items.slice(actionCount).map(function(it, i) {
+      var idx = actionCount + i;
+      return '<div class="palette-item" data-idx="' + idx + '" onmousedown="paletteItemsData[' + idx + ']()">' +
+        '<span class="palette-item-icon">' + it.icon + '</span>' +
+        '<span class="palette-item-text">' + esc(it.text) + '</span>' +
+        '<span class="palette-item-hint">' + esc(it.hint || '') + '</span></div>';
+    }).join('');
+}
+
+// Global keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openPalette(); }
+  if (e.key === 'Escape' && $('paletteOverlay').classList.contains('visible')) { closePalette(); }
+});
+
+// ===========================================================================
 // Boot
-// ---------------------------------------------------------------------------
+// ===========================================================================
+loadHistory();
+renderHistory();
+renderActivity();
+$('resolverUrl').addEventListener('keydown', function(e) { if (e.key === 'Enter') connect(); });
 connect();
 </script>
 </body>
