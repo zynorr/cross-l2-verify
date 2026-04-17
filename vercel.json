@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "cross-l2-verify-dashboard",
+  "outputDirectory": "packages/dashboard",
+  "buildCommand": null,
+  "installCommand": null,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
