@@ -9,7 +9,8 @@
     "test": "node --import tsx src/create2-demo.ts",
     "demo": "node --import tsx src/create2-demo.ts --keep-alive",
     "demo:plan": "node --import tsx src/create2-demo.ts --dry-run",
-    "demo:live-ipfs": "node --import tsx src/create2-demo.ts --keep-alive --require-live-ipfs"
+    "demo:live-ipfs": "node --import tsx src/create2-demo.ts --keep-alive --require-live-ipfs",
+    "demo:testnet": "node --import tsx src/testnet-demo.ts"
   },
   "dependencies": {
     "@cross-l2-verify/sdk": "workspace:*",
