@@ -1,7 +1,7 @@
 {
   "version": 2,
   "outputDirectory": "packages/dashboard",
-  "buildCommand": "echo \"window.RESOLVER_URL='$RESOLVER_URL';\" > packages/dashboard/config.js",
+  "buildCommand": "printf \"window.RESOLVER_URL='%s';\" \"$(echo -n $RESOLVER_URL | tr -d '\\n\\r')\" > packages/dashboard/config.js",
   "installCommand": "",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
