@@ -11,6 +11,9 @@
     "sdk:test": "pnpm --filter @cross-l2-verify/sdk test",
     "cli:test": "pnpm --filter @cross-l2-verify/cli test",
     "integration:test": "pnpm --filter @cross-l2-verify/integration test",
+    "demo:testnet": "pnpm --filter @cross-l2-verify/integration demo:testnet",
+    "bulk-import": "pnpm --filter @cross-l2-verify/integration bulk-import",
+    "bulk-import:dry": "pnpm --filter @cross-l2-verify/integration bulk-import:dry",
     "resolver:dev": "pnpm --filter @cross-l2-verify/resolver-api dev",
     "cli": "pnpm --filter @cross-l2-verify/cli cli"
   },

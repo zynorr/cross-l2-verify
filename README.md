@@ -2,29 +2,73 @@
 
 Verify an EVM contract once, anchor the proof on Ethereum L1, and reuse it across every L2 where the same runtime bytecode is deployed.
 
+```
+  Developer                    Ethereum L1                      Any L2
+     │                             │                              │
+     │  verify(source, address)    │                              │
+     │────────────────────────────▶│                              │
+     │                             │  submitProof(codeHash,       │
+     │  IPFS: pin proof JSON       │    sourceHash, ipfsCid)      │
+     │◀── CID ────────────────────▶│  ◀───────────────────────── │
+     │                             │                              │
+     │                             │  DeploymentRegistered event  │
+     │  propagate(codeHash, addr)  │◀─────────────────────────── │
+     │────────────────────────────▶│                              │
+     │                             │                              │
+     │  lookup(codeHash)           │                              │
+     │────────────────────────────▶│                              │
+     │◀── proof + all chains ──────│                              │
+```
+
+**Primary key:** `keccak256(runtimeBytecode)` — one proof covers every chain where that bytecode exists.
+
 ## How It Works
 
-1. **Verify** — Recompile source with `solc-js`, compare runtime bytecode against the deployed contract, build a verification proof, pin it to IPFS, and anchor hashes on L1.
+1. **Verify** — Recompile source with `solc-js`, compare runtime bytecode against the deployed contract, build a [verification proof](spec/verification-proof-format.md), pin it to IPFS, and anchor hashes on L1.
 2. **Propagate** — Find the same bytecode on another chain and register the deployment on L1 without resubmitting source.
 3. **Lookup** — Query the L1 registry by address or `keccak256(runtimeBytecode)` to retrieve proofs and all known deployments.
-
-The primary key is `keccak256(runtimeBytecode)`. One proof covers every chain where that bytecode exists.
 
 ## Architecture
 
 ```
-docs/spec/                   Proof format spec, protocol spec, ERC-7744 integration
+spec/                        Proof format spec, ERC-7744 integration notes
 packages/contracts/          Solidity registry contract (Foundry)
 packages/sdk/                TypeScript SDK — verify, lookup, propagate
 packages/cli/                CLI wrapping the SDK
-packages/tooling/            Shared Foundry/Hardhat hook helpers
-packages/hardhat/            Hardhat plugin for post-deploy verification
-packages/foundry/            Foundry plugin for post-deploy verification
-packages/indexer/            Event indexer for scalable registry reads
-packages/explorer-client/    Lightweight client for block explorer integration
-packages/resolver-api/       HTTP resolver with cached IPFS lookups and live indexing
-packages/integration/        End-to-end demo with 3 local Anvil chains
+packages/indexer/            Event indexer for scalable registry reads (memory + SQLite)
+packages/resolver-api/       HTTP resolver with SSE, webhook, IPFS cache, live indexing
+packages/integration/        End-to-end demo (local Anvil + Sepolia testnet)
 examples/                    Sample contracts
+```
+
+### Data Flow
+
+```
+  Source code + address
+        │
+        ▼
+  [SDK] compileSolidity()        ← solc-js (exact version match)
+        │
+        ▼
+  Compare runtimeBytecode
+  with eth_getCode output
+        │ match
+        ▼
+  Build VerificationProof JSON
+        │
+        ├──▶ [Pinata] pin to IPFS  ──▶  ipfsCid
+        │
+        ▼
+  [L1] VerificationRegistry.submitProof(
+         proofHash, codeHash, sourceHash, compilerVersion, ipfsCid
+       )
+        │
+        ▼
+  ProofSubmitted event
+        │
+        ├──▶ [Indexer] stores in SQLite
+        │
+        └──▶ [SSE] broadcasts to dashboard clients
 ```
 
 ## Prerequisites
@@ -156,7 +200,10 @@ GET /codehash/:codeHash/chains           Chain IDs where the bytecode is deploye
 GET /chains/:chainId/addresses/:address  Lookup by on-chain address (?rpc=)
 GET /proofs/:proofHash                   Single proof with full IPFS payload
 GET /indexer/status                      Proof count, deployment count, last synced block
-GET /events                              SSE event stream for real-time status updates
+GET /indexer/recent                      Most recent proofs and deployments (?limit=50)
+GET /metrics                             Prometheus metrics
+GET /events                              SSE stream: proof, deployment, status events
+POST /webhooks                           Register a webhook endpoint
 ```
 
 The resolver boots an event indexer on startup that syncs historical events and live-polls for new ones. IPFS proof fetches are LRU-cached (default 500 entries). Set `SQLITE_PATH` for persistent storage across restarts.
