@@ -127,6 +127,20 @@ export class SqliteIndexStore implements IndexStore {
     return row ? rowToProof(row) : undefined;
   }
 
+  recentProofs(limit: number): IndexedProof[] {
+    const stmt = this._db.prepare(
+      "SELECT * FROM proofs ORDER BY block_number DESC, log_index DESC LIMIT ?",
+    );
+    return stmt.all(Math.max(0, limit)).map(rowToProof);
+  }
+
+  recentDeployments(limit: number): IndexedDeployment[] {
+    const stmt = this._db.prepare(
+      "SELECT * FROM deployments ORDER BY block_number DESC, log_index DESC LIMIT ?",
+    );
+    return stmt.all(Math.max(0, limit)).map(rowToDeployment);
+  }
+
   state(): IndexState {
     const proofCount = (this._db.prepare("SELECT COUNT(*) as cnt FROM proofs").get() as any).cnt;
     const deploymentCount = (this._db.prepare("SELECT COUNT(*) as cnt FROM deployments").get() as any).cnt;

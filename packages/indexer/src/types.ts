@@ -45,6 +45,8 @@ export interface IndexQuery {
   deploymentsByChain(codeHash: string, chainId: number): IndexedDeployment[];
   chainIdsByCodeHash(codeHash: string): number[];
   proofByHash(proofHash: string): IndexedProof | undefined;
+  recentProofs(limit: number): IndexedProof[];
+  recentDeployments(limit: number): IndexedDeployment[];
   state(): IndexState;
 }
 

@@ -1130,6 +1130,7 @@ class ResolverClient {
   getDeployments(h, c) { var q = c ? '?chainId=' + c : ''; return this._get('/codehash/' + h + '/deployments' + q); }
   getChains(h) { return this._get('/codehash/' + h + '/chains'); }
   indexerStatus() { return this._get('/indexer/status'); }
+  indexerRecent(limit) { return this._get('/indexer/recent?limit=' + (limit || 50)); }
 }
 
 // ===========================================================================
@@ -1351,6 +1352,7 @@ async function connect() {
     $('refreshBtn').style.display = '';
     startAutoRefresh();
     connectSSE();
+    backfillActivity();
     toast('Connected', url, '\u2705');
   } catch (e) {
     ['proofCount','deploymentCount','chainCount','lastBlock'].forEach(function(id) { $(id).textContent = '\u2014'; });
@@ -1458,8 +1460,21 @@ function connectSSE() {
   };
 }
 
-function addActivity(type, data) {
-  var item = { type: type, data: data, time: new Date() };
+function activityKey(type, data) {
+  if (type === 'proof') return 'p:' + (data.proofHash || '');
+  return 'd:' + (data.codeHash || '') + ':' + (data.chainId || 0) + ':' + (data.address || '');
+}
+
+function hasActivity(type, data) {
+  var key = activityKey(type, data);
+  return activityEvents.some(function(ev) { return activityKey(ev.type, ev.data) === key; });
+}
+
+function addActivity(type, data, opts) {
+  if (hasActivity(type, data)) return;
+  var silent = opts && opts.silent;
+  var time = (opts && opts.time) ? opts.time : new Date();
+  var item = { type: type, data: data, time: time };
   activityEvents.unshift(item);
   if (activityEvents.length > 200) activityEvents.pop();
 
@@ -1471,8 +1486,24 @@ function addActivity(type, data) {
   renderActivity();
   $('clearActivityBtn').style.display = '';
 
+  if (silent) return;
   if (type === 'proof') toast('New Proof', truncate(data.proofHash || '', 32), '\u2705');
   else toast('Deployment', chainName(data.chainId || 0) + ' ' + truncate(data.address || '', 22), '\u26A1');
+}
+
+async function backfillActivity() {
+  if (!client) return;
+  try {
+    var r = await client.indexerRecent(50);
+    var items = [];
+    (r.proofs || []).forEach(function(p) { items.push({ type: 'proof', data: p }); });
+    (r.deployments || []).forEach(function(d) { items.push({ type: 'deployment', data: d }); });
+    // Sort ascending by block so that addActivity's unshift leaves newest on top.
+    items.sort(function(a, b) {
+      return (a.data.blockNumber - b.data.blockNumber) || (a.data.logIndex - b.data.logIndex);
+    });
+    items.forEach(function(it) { addActivity(it.type, it.data, { silent: true }); });
+  } catch (e) { /* endpoint may be unavailable on older resolvers */ }
 }
 
 function updateActivityBadge() {

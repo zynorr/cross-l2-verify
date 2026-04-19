@@ -54,6 +54,19 @@ export class MemoryIndexStore implements IndexStore {
     return this._proofs.get(proofHash.toLowerCase());
   }
 
+  recentProofs(limit: number): IndexedProof[] {
+    const all = [...this._proofs.values()];
+    all.sort((a, b) => b.blockNumber - a.blockNumber || b.logIndex - a.logIndex);
+    return all.slice(0, Math.max(0, limit));
+  }
+
+  recentDeployments(limit: number): IndexedDeployment[] {
+    const all: IndexedDeployment[] = [];
+    for (const list of this._codeHashToDeployments.values()) all.push(...list);
+    all.sort((a, b) => b.blockNumber - a.blockNumber || b.logIndex - a.logIndex);
+    return all.slice(0, Math.max(0, limit));
+  }
+
   state(): IndexState {
     const chainIds = new Set<number>();
     for (const deployments of this._codeHashToDeployments.values()) {

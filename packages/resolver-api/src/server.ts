@@ -103,8 +103,8 @@ export function createResolverApp(config: ResolverConfig): Express {
   app.get("/", (_request: Request, response: Response) => {
     response.json({
       service: "cross-l2-verify-resolver",
-      version: "0.5.0",
-      features: ["sse-proof-events", "sse-deployment-events"],
+      version: "0.6.0",
+      features: ["sse-proof-events", "sse-deployment-events", "indexer-recent"],
       endpoints: [
         "/health",
         "/codehash/:codeHash",
@@ -113,6 +113,7 @@ export function createResolverApp(config: ResolverConfig): Express {
         "/chains/:chainId/addresses/:address",
         "/proofs/:proofHash",
         "/indexer/status",
+        "/indexer/recent",
         "/events",
         "/webhooks",
       ],
@@ -130,6 +131,19 @@ export function createResolverApp(config: ResolverConfig): Express {
 
   app.get("/indexer/status", (_request: Request, response: Response) => {
     response.json(indexStore.state());
+  });
+
+  app.get("/indexer/recent", (request: Request, response: Response) => {
+    const rawLimit = singleQueryValue(request, "limit");
+    let limit = rawLimit ? Number.parseInt(rawLimit, 10) : 50;
+    if (!Number.isFinite(limit) || limit < 1) limit = 50;
+    if (limit > 200) limit = 200;
+
+    response.json({
+      proofs: indexStore.recentProofs(limit),
+      deployments: indexStore.recentDeployments(limit),
+      limit,
+    });
   });
 
   registerWebhookRoutes(app, webhooks);
