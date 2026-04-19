@@ -13,6 +13,8 @@ export interface SyncOptions {
   store: IndexStore;
   fromBlock?: number;
   batchSize?: number;
+  onProof?: (proof: IndexedProof) => void;
+  onDeployment?: (deployment: IndexedDeployment) => void;
 }
 
 export async function syncToHead(options: SyncOptions): Promise<number> {
@@ -50,7 +52,9 @@ export async function syncToHead(options: SyncOptions): Promise<number> {
         logIndex: event.index,
       };
 
+      const wasNew = !store.proofByHash(proof.proofHash);
       store.addProof(proof);
+      if (wasNew) options.onProof?.(proof);
       processed++;
     }
 
@@ -68,7 +72,10 @@ export async function syncToHead(options: SyncOptions): Promise<number> {
         logIndex: event.index,
       };
 
+      const existing = store.deploymentsByChain(indexed.codeHash, indexed.chainId);
+      const isDuplicate = existing.some((d) => d.address.toLowerCase() === indexed.address.toLowerCase());
       store.addDeployment(indexed);
+      if (!isDuplicate) options.onDeployment?.(indexed);
       processed++;
     }
   }

@@ -66,6 +66,15 @@ export function createResolverApp(config: ResolverConfig): Express {
     console.log(`Indexer: using SQLite at ${config.sqlitePath}`);
   }
 
+  // SSE client broadcaster
+  const sseClients = new Set<Response>();
+  const broadcast = (event: string, data: unknown) => {
+    const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+    for (const client of sseClients) {
+      try { client.write(payload); } catch { /* client gone */ }
+    }
+  };
+
   if (config.enableIndexer !== false) {
     syncToHead({
       provider: registryRunner,
@@ -81,6 +90,8 @@ export function createResolverApp(config: ResolverConfig): Express {
         registryAddress: config.registryAddress,
         store: indexStore,
         pollIntervalMs: 12_000,
+        onProof: (proof) => broadcast("proof", proof),
+        onDeployment: (deployment) => broadcast("deployment", deployment),
       });
     }).catch((error) => {
       console.error("Indexer sync failed, falling back to on-chain reads:", error);
@@ -202,11 +213,13 @@ export function createResolverApp(config: ResolverConfig): Express {
     response.setHeader("Connection", "keep-alive");
     response.flushHeaders();
 
+    sseClients.add(response);
+
     // Send initial status
     const state = indexStore.state();
     response.write(`event: status\ndata: ${JSON.stringify(state)}\n\n`);
 
-    // Poll for changes every 12s
+    // Poll for status changes every 12s
     let lastBlock = state.lastBlockNumber;
     const interval = setInterval(() => {
       const current = indexStore.state();
@@ -218,6 +231,7 @@ export function createResolverApp(config: ResolverConfig): Express {
 
     request.on("close", () => {
       clearInterval(interval);
+      sseClients.delete(response);
     });
   });
 
