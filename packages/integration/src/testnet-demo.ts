@@ -109,7 +109,9 @@ async function main() {
 
   // ── 2. Compute Counter CREATE2 address using Nick's factory ──────────────
   console.log("\nStep 2: Computing Counter CREATE2 address via Nick's factory...");
-  const salt = keccak256(toUtf8Bytes("cross-l2-verify-testnet-demo-v1"));
+  const saltSeed = process.env.DEMO_SALT ?? "cross-l2-verify-testnet-demo-v1";
+  const salt = keccak256(toUtf8Bytes(saltSeed));
+  console.log("  Salt seed:", saltSeed);
   const counterAddr = getCreate2Address(NICK_FACTORY, salt, keccak256(counterArtifact.bytecode));
   console.log("  Counter address:", counterAddr, "(same on all chains)");
   console.log("  Nick's factory:", NICK_FACTORY);
