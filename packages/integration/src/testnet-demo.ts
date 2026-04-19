@@ -149,7 +149,7 @@ async function main() {
 
   // ── 4. Verify on Arb Sepolia, anchor proof on Sepolia L1 ─────────────────
   console.log("\nStep 4: Verifying Counter on Arb Sepolia (anchoring on Sepolia L1)...");
-  const ipfsClient = new PinataIpfsClient({ jwt: PINATA_JWT, gateway: IPFS_GATEWAY });
+  const ipfsClient = new PinataIpfsClient({ jwt: PINATA_JWT, gatewayUrl: IPFS_GATEWAY });
   const compilerVersion = solc.version();
 
   const verificationResult = await verify({
