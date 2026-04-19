@@ -1,7 +1,7 @@
 {
   "version": 2,
   "outputDirectory": "packages/dashboard",
-  "buildCommand": "",
+  "buildCommand": "echo \"window.RESOLVER_URL='$RESOLVER_URL';\" > packages/dashboard/config.js",
   "installCommand": "",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
