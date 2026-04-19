@@ -103,7 +103,8 @@ export function createResolverApp(config: ResolverConfig): Express {
   app.get("/", (_request: Request, response: Response) => {
     response.json({
       service: "cross-l2-verify-resolver",
-      version: "0.4.0",
+      version: "0.5.0",
+      features: ["sse-proof-events", "sse-deployment-events"],
       endpoints: [
         "/health",
         "/codehash/:codeHash",
