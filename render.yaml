@@ -6,6 +6,8 @@ services:
     dockerContext: .
     dockerCommand: node packages/resolver-api/dist/server.js
     plan: free
+    autoDeploy: true
+    branch: main
     envVars:
       - key: PORT
         value: 3000
