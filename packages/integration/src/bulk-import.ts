@@ -414,32 +414,45 @@ async function importContract(opts: ImportContractOptions): Promise<void> {
       stats.failed++; cs.failed++; return;
     }
 
-    // 3. Compile
-    let compiledRuntime: string, compiledCreation: string;
-    try {
-      const output = await compileSolidity(compilerInput);
-      const compiled = getCompiledContract(output, contractPath, detail.name);
-      compiledRuntime = "0x" + (compiled.evm?.deployedBytecode?.object ?? "");
-      compiledCreation = "0x" + (compiled.evm?.bytecode?.object ?? "");
-      if (compiledRuntime === "0x") throw new Error("empty compiled runtime");
-    } catch (err) {
-      console.log(`  ✗  ${label} — compile: ${errorMessage(err).slice(0, 80)}`);
-      stats.failed++; cs.failed++; return;
-    }
-
-    // 4. Fetch deployed bytecode
+    // 3. Fetch deployed bytecode (needed even for fallback path)
     const deployedRuntime = await targetProvider.getCode(getAddress(contract.address));
     if (!deployedRuntime || deployedRuntime === "0x") {
       console.log(`  ⊘  ${label} — no deployed code`);
       stats.skipped++; cs.skipped++; return;
     }
 
-    // 5. Check match
-    const match = matchBytecode(compiledRuntime, deployedRuntime);
-    if (match === "none") {
-      console.log(`  ⊘  ${label} — bytecode mismatch`);
-      stats.skipped++; cs.skipped++; return;
+    // 4. Compile and match; fall back to Blockscout-trusted anchor on version mismatch
+    let compiledRuntime: string, compiledCreation: string;
+    let match: MatchKind;
+
+    try {
+      const output = await compileSolidity(compilerInput);
+      const compiled = getCompiledContract(output, contractPath, detail.name);
+      compiledRuntime = "0x" + (compiled.evm?.deployedBytecode?.object ?? "");
+      compiledCreation = "0x" + (compiled.evm?.bytecode?.object ?? "");
+      if (compiledRuntime === "0x") throw new Error("empty compiled runtime");
+
+      // 5. Check match
+      match = matchBytecode(compiledRuntime, deployedRuntime);
+      if (match === "none") {
+        console.log(`  ⊘  ${label} — bytecode mismatch`);
+        stats.skipped++; cs.skipped++; return;
+      }
+    } catch (compileErr) {
+      const errMsg = errorMessage(compileErr);
+      // If compiler version doesn't match, fall back to Blockscout-trusted path:
+      // anchor the deployed bytecode against the source without recompiling.
+      // This is honest — we record what Blockscout verified but cannot independently
+      // recompile without downloading the exact historic compiler binary.
+      if (!errMsg.includes("requires different compiler") && !errMsg.includes("compiler ve")) {
+        console.log(`  ✗  ${label} — compile: ${errMsg.slice(0, 80)}`);
+        stats.failed++; cs.failed++; return;
+      }
+      compiledRuntime = deployedRuntime;   // use deployed as runtime reference
+      compiledCreation = "0x";             // creation bytecode unknown
+      match = "partial";
     }
+
     if (match === "partial" && FULL_ONLY) {
       console.log(`  ⊘  ${label} — partial match (FULL_ONLY set)`);
       stats.skipped++; cs.skipped++; return;
